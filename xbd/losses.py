@@ -142,21 +142,40 @@ class PerdaXBD(nn.Module):
         return sum(termos), partes
 
     def _termo_loc(self, logits, alvo) -> tuple[torch.Tensor, dict]:
-        """Localizacao derivada de `1 - p(fundo)`: sem cabeca propria."""
+        """Localizacao derivada da mesma saida de 5 classes, sem cabeca propria.
+
+        O termo de BCE usa `binary_cross_entropy_with_logits`, e nao a versao
+        sobre probabilidade: `binary_cross_entropy` e proibido sob autocast
+        (levanta RuntimeError em bf16/fp16), porque aplicar log a uma
+        probabilidade ja arredondada em 16 bits perde precisao perto de 0 e 1.
+
+        O logit binario de "existe edificacao" sai exato das 5 saidas:
+
+            p(edif) = 1 - softmax(logits)[0] = sum_{c>=1} softmax(logits)[c]
+            logit   = log( p / (1-p) )
+                    = logsumexp(logits[1:]) - logits[0]
+
+        porque o log-denominador do softmax cancela entre os dois termos. E
+        exato e estavel — nao ha clamp arbitrario escondendo gradiente.
+        """
         if self.loss_loc == "nenhuma":
             return logits.sum() * 0.0, {}
 
         valido = alvo != IGNORE_INDEX
-        p_edificacao = 1.0 - logits.softmax(dim=1)[:, 0]
-        alvo_loc = (alvo > 0).float()
+        if not valido.any():
+            return logits.sum() * 0.0, {"loc": 0.0}
 
-        l = F.binary_cross_entropy(
-            p_edificacao.clamp(1e-6, 1 - 1e-6)[valido], alvo_loc[valido]
-        ) if valido.any() else logits.sum() * 0.0
+        alvo_loc = (alvo > 0).float()
+        logit_edif = torch.logsumexp(logits[:, 1:], dim=1) - logits[:, 0]
+        l = F.binary_cross_entropy_with_logits(logit_edif[valido], alvo_loc[valido])
 
         if self.loss_loc == "bce_dice":
-            inter = (p_edificacao * alvo_loc * valido).sum()
-            denom = (p_edificacao * valido).sum() + (alvo_loc * valido).sum()
+            # Dice em fp32: sob bf16, somar milhoes de termos de ~1e-3 satura a
+            # mantissa de 8 bits e o denominador para de crescer.
+            p = torch.sigmoid(logit_edif.float())
+            m = valido.float()
+            inter = (p * alvo_loc * m).sum()
+            denom = (p * m).sum() + (alvo_loc * m).sum()
             l = l + (1 - (2 * inter + 1.0) / (denom + 1.0))
 
         return l, {"loc": float(l.detach())}

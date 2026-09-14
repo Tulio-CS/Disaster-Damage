@@ -57,6 +57,34 @@ class Confusao:
         denom = m.sum(0) + m.sum(1) - tp
         return np.divide(tp, denom, out=np.zeros_like(tp), where=denom > 0)
 
+    def precisao_por_classe(self) -> np.ndarray:
+        """TP / (TP + FP) — das que o modelo chamou de X, quantas eram X."""
+        m = self.mat.double().cpu().numpy()
+        tp, preditas = np.diag(m), m.sum(0)
+        return np.divide(tp, preditas, out=np.zeros_like(tp), where=preditas > 0)
+
+    def recall_por_classe(self) -> np.ndarray:
+        """TP / (TP + FN) — das que eram X, quantas o modelo achou.
+
+        Separar isto do F1 nao e detalhe: o score do xView2 e media harmonica
+        dos F1 das 4 severidades, entao e dominado pela pior classe — quase
+        sempre `minor-damage`, a mais rara. Se ela vai mal por falta de recall
+        (o modelo nao acha o dano leve) a correcao e mais oversampling e mais
+        peso; se e por falta de precisao (chama de leve o que e intacto) a
+        correcao e a oposta. O F1 sozinho nao distingue os dois casos.
+        """
+        m = self.mat.double().cpu().numpy()
+        tp, reais = np.diag(m), m.sum(1)
+        return np.divide(tp, reais, out=np.zeros_like(tp), where=reais > 0)
+
+    def achatada(self) -> list[int]:
+        """Matriz como lista plana, linha a linha. Vai junto com as metricas.
+
+        Com ela no banco, qualquer metrica derivada pode ser recalculada depois
+        — inclusive retroativamente, sem tocar nas maquinas do laboratorio.
+        """
+        return [int(v) for v in self.mat.cpu().numpy().ravel()]
+
     def f1_localizacao(self) -> float:
         """F1 binario de 'existe edificacao', colapsando as classes 1..4."""
         m = self.mat.double().cpu().numpy()
@@ -83,12 +111,15 @@ class Confusao:
             return self.f1_localizacao()
         return 0.3 * self.f1_localizacao() + 0.7 * self.f1_dano_harmonico()
 
-    def resumo(self) -> dict[str, float]:
+    def resumo(self) -> dict:
         f1 = self.f1_por_classe()
         iou = self.iou_por_classe()
-        out: dict[str, float] = {
+        prec = self.precisao_por_classe()
+        rec = self.recall_por_classe()
+        out: dict = {
             "f1_loc": self.f1_localizacao(),
             "score_xview2": self.score_xview2(),
+            "matriz": self.achatada(),
         }
         if self.n >= 5:
             out["f1_dano_harmonico"] = self.f1_dano_harmonico()
@@ -96,8 +127,12 @@ class Confusao:
             for i, nome in enumerate(CLASS_NAMES[: self.n]):
                 out[f"f1_{nome}"] = float(f1[i])
                 out[f"iou_{nome}"] = float(iou[i])
+                out[f"prec_{nome}"] = float(prec[i])
+                out[f"rec_{nome}"] = float(rec[i])
         else:
             out["iou_edificacao"] = float(iou[1]) if len(iou) > 1 else 0.0
+            out["prec_edificacao"] = float(prec[1]) if len(prec) > 1 else 0.0
+            out["rec_edificacao"] = float(rec[1]) if len(rec) > 1 else 0.0
         return out
 
     def tabela(self) -> str:
