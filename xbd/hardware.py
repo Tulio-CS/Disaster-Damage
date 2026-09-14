@@ -317,7 +317,10 @@ def plan(hw: Hardware, *, crop: int = 512, encoder: str = "resnet34",
         crop=crop,
         encoder=encoder,
         channels_last=hw.has_cuda,
-        compile_model=bool(torch_ok and hw.has_cuda),
+        # torch.compile depende do Triton, que nao tem suporte oficial no
+        # Windows. Ligar la faz a compilacao falhar no PRIMEIRO forward — ja
+        # dentro do laco de treino — em vez de na montagem do modelo.
+        compile_model=bool(torch_ok and hw.has_cuda and platform.system() != "Windows"),
         pin_memory=hw.has_cuda,
         persistent_workers=num_workers > 0,
         prefetch_factor=2 if num_workers > 0 else None,
