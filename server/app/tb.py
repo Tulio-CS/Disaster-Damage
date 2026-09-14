@@ -76,12 +76,14 @@ class Escritor:
         for chave, valor in metricas.items():
             tag = TAGS.get(chave)
             if tag is None:
-                if chave.startswith("f1_"):
-                    tag = f"f1/{chave[3:]}"
-                elif chave.startswith("iou_"):
-                    tag = f"iou/{chave[4:]}"
+                for prefixo, grupo in (("f1_", "f1"), ("iou_", "iou"),
+                                       ("prec_", "precisao"), ("rec_", "recall")):
+                    if chave.startswith(prefixo):
+                        tag = f"{grupo}/{chave[len(prefixo):]}"
+                        break
                 else:
-                    continue
+                    continue    # inclui `matriz`, que nao e escalar — fica so no
+                                # banco, de onde qualquer metrica pode ser refeita
             try:
                 v = float(valor)
             except (TypeError, ValueError):
