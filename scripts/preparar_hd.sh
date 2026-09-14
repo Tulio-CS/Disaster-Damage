@@ -36,13 +36,20 @@ echo "=== HD: $HD  ($LIVRE_GB GB livres, precisa de ~$PRECISA_GB GB)"
 SIS=$(df -T "$HD" | tail -1 | awk '{print $2}')
 echo "=== sistema de arquivos: $SIS"
 case "$SIS" in
-    exfat|fuseblk)  echo "    ok — legivel no Windows e sem limite de tamanho de arquivo" ;;
-    ntfs|ntfs3)     echo "    ok — legivel no Windows" ;;
+    exfat|ntfs|ntfs3)
+        echo "    ok — legivel no Windows, sem limite de tamanho de arquivo" ;;
+    fuseblk)
+        # ntfs-3g e exfat-fuse se apresentam os dois como 'fuseblk'.
+        echo "    ok — legivel no Windows (montado via FUSE)"
+        echo "    (o driver de kernel seria mais rapido para escrever 33 GB;"
+        echo "     veja o runbook se a copia estiver lenta)" ;;
     ext4|ext3|xfs|btrfs)
+        DEV=$(findmnt -no SOURCE "$HD" 2>/dev/null || echo /dev/sdX1)
         echo "! $SIS NAO e legivel pelo Windows sem driver de terceiros."
-        echo "  As maquinas do laboratorio rodam Windows; reformate para exFAT:"
+        echo "  As maquinas do laboratorio rodam Windows. Reformate:"
         echo "      sudo umount $HD"
-        echo "      sudo mkfs.exfat -n XBD-LAB \$(findmnt -no SOURCE $HD)"
+        echo "      sudo mkfs.ntfs -f -L XBD-LAB $DEV     # -f = formato rapido"
+        echo "  (ou mkfs.exfat -n XBD-LAB $DEV, se preferir exFAT)"
         exit 1 ;;
     vfat|msdos)
         echo "! FAT32 nao aceita arquivo maior que 4 GB, e o xbd-data.tar tem 33 GB."

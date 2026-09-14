@@ -263,14 +263,21 @@ nelas, e a distribuicao e por HD. Isso define tres coisas:
 | Sem administrador | Nada de instalar Python, driver ou servico. Tudo dentro da pasta do usuario |
 | Windows | Os `.sh` nao rodam. O instalador e um `.py`, que serve aos dois sistemas |
 
-### 5.1 Formatar em exFAT
+### 5.1 Formatar em NTFS (ou exFAT)
 
 ```bash
 lsblk -o NAME,SIZE,MODEL,TRAN,MOUNTPOINT      # confirme TRAN=usb antes!
-sudo apt install exfatprogs
 sudo umount /dev/sdb1
-sudo mkfs.exfat -n XBD-LAB /dev/sdb1
+sudo mkfs.ntfs -f -L XBD-LAB /dev/sdb1        # -f = formato rapido
 ```
+
+**`-f` nao e opcional.** Sem ele, o `mkfs.ntfs` faz formato completo e zera os
+931 GB do disco inteiro — horas de espera sem ganho nenhum.
+
+NTFS em vez de exFAT porque `mkfs.ntfs` ja vem instalado (pacote `ntfs-3g`),
+enquanto o exFAT exigiria `apt install exfatprogs`. Os dois sao lidos e escritos
+pelo Windows sem driver extra e nao tem o limite de 4 GB por arquivo do FAT32.
+Se preferir exFAT: `sudo mkfs.exfat -n XBD-LAB /dev/sdb1`.
 
 > **Confira o dispositivo.** `/dev/sda` e o disco interno de 447 GB com o
 > projeto, os 33 GB preparados e os 131 GB de GeoTIFF. Um `b` trocado por `a`
