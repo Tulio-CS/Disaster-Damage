@@ -340,6 +340,23 @@ toca o código de treino.
 - **`hold` é usado como validação e como número reportado.** Não há conjunto de
   teste intocado neste estudo; `test` do xBD permanece sem uso.
 
+- **A validação durante o treino usa recorte central**, não a cena inteira
+  ([data.py:60](xbd/data.py:60)). Com `crop: 512`, os números saem de 25% de cada
+  cena de `hold` — a região central. Isso os torna **não comparáveis com o placar
+  do xView2**, que pontua a cena completa.
+
+  O efeito é mais sério na ablação de resolução: `cfg.crop` governa treino *e*
+  validação, então `abl-crop256`, `ref` e `abl-crop768` foram avaliados sobre 6%,
+  25% e 56% da cena. São conjuntos de validação diferentes, e o delta entre eles
+  confunde "efeito do crop no treino" com "efeito de avaliar em mais área". As
+  outras 21 ablações não são afetadas: todas validam nos mesmos 512 centrais.
+
+  **Corrigido a posteriori** por `scripts/avaliar.py`, que reavalia todos os
+  checkpoints coletados em cena inteira (1024×1024), sob protocolo idêntico. É
+  esse número que deve ser reportado para a curva de resolução e para qualquer
+  comparação com a literatura; o número do treino serve para acompanhar a
+  convergência e comparar as demais ablações entre si.
+
 ---
 
 Detalhamento dos 24 experimentos, hipóteses e bibliografia:
