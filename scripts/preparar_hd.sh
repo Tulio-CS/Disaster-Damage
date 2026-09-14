@@ -113,13 +113,18 @@ fi
 # Atalho do Windows: clique duplo em vez de digitar caminho no terminal. O
 # %~dp0 resolve para a pasta do .bat, entao funciona em qualquer letra de
 # unidade — o HD pode montar como E:, F: ou G: dependendo da maquina.
-printf '%s\r\n' \
-  '@echo off' \
-  'REM Instalador do laboratorio xBD. Clique duplo neste arquivo.' \
-  'cd /d "%~dp0"' \
-  'where py >nul 2>&1 && (py "%~dp0Disaster-Damage\scripts\instalar.py") || (python "%~dp0Disaster-Damage\scripts\instalar.py")' \
-  'if errorlevel 1 pause' \
-  > "$HD/INSTALAR.bat"
+bat() {   # bat <arquivo> <script.py> <comentario>
+    printf '%s\r\n' \
+      '@echo off' \
+      "REM $3" \
+      'cd /d "%~dp0"' \
+      "where py >nul 2>&1 && (py \"%~dp0Disaster-Damage\\scripts\\$2\") || (python \"%~dp0Disaster-Damage\\scripts\\$2\")" \
+      'if errorlevel 1 pause' \
+      > "$HD/$1"
+}
+bat INSTALAR.bat instalar.py      "Instala e dispara esta maquina. Clique duplo."
+bat COLETAR.bat  coletar.py       "Recolhe modelos e resultados desta maquina para o HD."
+bat RELIGAR.bat  religar.py       "Religa o agente (apos reinicio da maquina)."
 
 cat > "$HD/INSTALAR.txt" <<'EOF'
 Em cada maquina do laboratorio (Windows):
