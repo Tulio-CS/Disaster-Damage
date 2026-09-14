@@ -1,0 +1,14 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+httpx>=0.27,<1
+PyYAML>=6,<7
+tensorboard>=2.17,<3
+tensorboardX>=2.6,<3
+protobuf>=4.25,<6
+
+# tensorboard 2.20 ainda faz `import pkg_resources` (tensorboard/default.py:30),
+# que nao vem mais no venv padrao do Python 3.12. O teto de 81 nao e cautela: a
+# setuptools 81 REMOVEU o pkg_resources, entao um `>=70` sem teto resolve para a
+# 84 e o TensorBoard volta a morrer no boot. Ao subir o teto, confira antes:
+#     python -c "import pkg_resources"
+setuptools>=70,<81

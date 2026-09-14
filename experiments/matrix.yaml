@@ -1,0 +1,246 @@
+# Matriz de experimentos do laboratorio (20 maquinas).
+#
+# Cada entrada vira um slot na fila. As maquinas PUXAM o proximo slot livre em
+# vez de receber uma atribuicao fixa: quem termina antes pega o proximo, e um
+# slot cuja maquina morreu volta para a fila sozinho.
+#
+# ---------------------------------------------------------------------------
+# Como ler
+#
+#   referencia  o numero-base. Toda ablacao e lida como delta contra ele.
+#   baseline    estabelece o que ja se sabe: piso de localizacao, generalizacao
+#               honesta por desastre e o RUIDO DA MEDIDA (replicas de semente).
+#   ablacao     muda EXATAMENTE UM fator em relacao a referencia.
+#
+# A regra de um fator por vez e o que torna o delta interpretavel. Se dois
+# campos mudam, o resultado nao atribui a causa a nenhum dos dois.
+#
+# ---------------------------------------------------------------------------
+# Leia os slots 8 e 9 antes de tirar conclusao de qualquer ablacao
+#
+# Sao a referencia repetida com outra semente. O espalhamento entre os slots 1,
+# 8 e 9 e o ruido do proprio experimento: uma ablacao que se afasta da
+# referencia por menos do que esse espalhamento nao mediu efeito nenhum, mediu
+# a semente. Sem esses dois slots, todo delta pequeno da tabela e indistinguivel
+# de acaso — e e assim que se publica uma conclusao errada.
+#
+# ---------------------------------------------------------------------------
+# Orcamento
+#
+# `epochs: 20` mira um dia de laboratorio numa GPU de 8-12 GB. Se as maquinas
+# forem mais rapidas, suba para 30 aqui em `comum` (vale para todos os slots de
+# uma vez). Se o dia for curto, 12 ja separa as hipoteses, ainda que o numero
+# absoluto fique abaixo do que o modelo alcanca.
+
+preset: base
+
+comum:
+  epochs: 20
+  crop: 512
+  encoder: resnet34
+  effective_batch: 16
+  lr: 0.0003
+  seed: 42
+
+experimentos:
+
+  # ------------------------------------------------------------- referencia
+  - nome: ref
+    grupo: referencia
+    eixo: referencia
+    hipotese: >-
+      Receita completa: U-Net siamesa resnet34, fusao cat+|diff|, crop 512,
+      tier1+tier3, oversample 3x, focal+dice, normalizacao pelas medias do xBD.
+      Todo delta da tabela e medido contra este slot.
+    config: {}
+
+  # --------------------------------------------------------------- baselines
+  - nome: base-loc-only
+    grupo: baseline
+    eixo: tarefa
+    hipotese: >-
+      So localizacao (2 classes). Separa quanto do score xView2 vem de achar o
+      predio e quanto vem de classificar a severidade — o termo dificil.
+    config:
+      task: loc
+
+  - nome: base-grouped-f0
+    grupo: baseline
+    eixo: generalizacao
+    hipotese: >-
+      Split agrupado por desastre: nenhum evento aparece no treino e na
+      validacao. A EDA mostrou que >65% dos tiles de hold sao vizinhos (<500 m)
+      de um tile de treino, entao o split oficial mede memorizacao do quarteirao,
+      nao generalizacao. Os 5 folds dao a queda real e o desvio entre eventos.
+    config: {split_mode: grouped, fold: 0}
+
+  - nome: base-grouped-f1
+    grupo: baseline
+    eixo: generalizacao
+    hipotese: Split agrupado por desastre, fold 1.
+    config: {split_mode: grouped, fold: 1}
+
+  - nome: base-grouped-f2
+    grupo: baseline
+    eixo: generalizacao
+    hipotese: Split agrupado por desastre, fold 2.
+    config: {split_mode: grouped, fold: 2}
+
+  - nome: base-grouped-f3
+    grupo: baseline
+    eixo: generalizacao
+    hipotese: Split agrupado por desastre, fold 3.
+    config: {split_mode: grouped, fold: 3}
+
+  - nome: base-grouped-f4
+    grupo: baseline
+    eixo: generalizacao
+    hipotese: Split agrupado por desastre, fold 4.
+    config: {split_mode: grouped, fold: 4}
+
+  - nome: base-semente-1337
+    grupo: baseline
+    eixo: ruido
+    hipotese: >-
+      Referencia com outra semente. Junto com o slot 9, define o piso de ruido:
+      abaixo desse espalhamento, nenhuma ablacao mediu efeito.
+    config: {seed: 1337}
+
+  - nome: base-semente-2024
+    grupo: baseline
+    eixo: ruido
+    hipotese: Referencia com uma terceira semente.
+    config: {seed: 2024}
+
+  # ---------------------------------------------------------------- ablacoes
+
+  - nome: abl-sem-siamese
+    grupo: ablacao
+    eixo: arquitetura
+    hipotese: >-
+      Sem encoder siames: a rede so ve a imagem PRE e nunca compara as datas.
+      Mede o teto de quem tenta inferir dano sem a imagem pos — deve desabar. Se
+      nao desabar, o sinal de dano esta vazando pela aparencia da cena.
+    config: {siamese: false}
+
+  - nome: abl-fusao-cat
+    grupo: ablacao
+    eixo: arquitetura
+    hipotese: >-
+      Fusao [pre | pos] sem o termo |pos-pre|. Testa a hipotese central do
+      modelo: a diferenca em espaco de features precisa ser dada de graca, ou a
+      rede aprende sozinha a subtrair?
+    config: {fuse_mode: cat}
+
+  - nome: abl-fusao-diff
+    grupo: ablacao
+    eixo: arquitetura
+    hipotese: >-
+      Fusao so com |pos-pre|, sem a aparencia crua. Se empatar com a referencia,
+      a aparencia e redundante e o modelo pode ficar 15% menor.
+    config: {fuse_mode: diff}
+
+  - nome: abl-sem-pretrained
+    grupo: ablacao
+    eixo: inicializacao
+    hipotese: >-
+      Encoder do zero. Imagem de satelite nadir nao se parece com ImageNet;
+      quantifica o quanto o pre-treino ainda paga nesse dominio.
+    config: {pretrained: false}
+
+  - nome: abl-sem-oversample
+    grupo: ablacao
+    eixo: amostragem
+    hipotese: >-
+      Sampler uniforme. Com 10:1 a favor de no-damage e 1 em 3 cenas com dano, a
+      maioria dos passos nao veria classe positiva. Deve derrubar sobretudo o F1
+      de minor-damage — e a media harmonica e dominada pelo pior termo.
+    config: {oversample_dano: 1.0}
+
+  - nome: abl-sem-tier3
+    grupo: ablacao
+    eixo: dados
+    hipotese: >-
+      So tier1 (5.598 cenas contra 18.336). Se o score cair pouco, as 12.738
+      cenas de tier3 estao pagando pouco pelo tempo de treino que custam.
+    config: {usar_tier3: false}
+
+  - nome: abl-crop256
+    grupo: ablacao
+    eixo: resolucao
+    hipotese: >-
+      Crop 256. Mais cenas por passo, menos contexto. Com 71% das edificacoes
+      abaixo de 32x32 px, o contexto pode importar menos que o numero de amostras.
+    config: {crop: 256}
+
+  - nome: abl-crop768
+    grupo: ablacao
+    eixo: resolucao
+    hipotese: >-
+      Crop 768. Mais contexto por passo, menos passos no mesmo tempo. Fecha a
+      curva de resolucao junto com os slots de 256 e 512.
+    config: {crop: 768}
+
+  - nome: abl-encoder-seresnext50
+    grupo: ablacao
+    eixo: capacidade
+    hipotese: >-
+      Encoder maior (seresnext50_32x4d). Separa "falta capacidade" de "falta
+      sinal": se o ganho for marginal, o gargalo e o rotulo, nao o modelo.
+    config: {encoder: seresnext50_32x4d}
+
+  - nome: abl-norm-imagenet
+    grupo: ablacao
+    eixo: normalizacao
+    hipotese: >-
+      Estatisticas do ImageNet no lugar das medidas no xBD (media 0,33/0,36/0,27
+      contra 0,49/0,46/0,41). Barato de testar e costuma ser copiado sem
+      verificacao — vale saber se custa algo aqui.
+    config: {norm: imagenet}
+
+  - nome: abl-perda-ce
+    grupo: ablacao
+    eixo: perda
+    hipotese: >-
+      Entropia cruzada ponderada + dice, sem o termo focal. Com pesos por classe
+      ja aplicados, parte do trabalho do focal e redundante; isola se o gamma
+      esta pagando o proprio custo.
+    config: {loss_dmg: ce_dice}
+
+  # ---------------------------------------------------------------- reserva
+  #
+  # Prioridade alta = fim da fila. Nenhuma maquina pega estes enquanto houver
+  # slot principal livre; servem para nao deixar maquina parada quando alguem
+  # termina cedo ou quando um slot morre e sobra tempo.
+
+  - nome: abl-ema
+    grupo: ablacao
+    eixo: otimizacao
+    prioridade: 90
+    hipotese: Media movel exponencial dos pesos (decay 0,999).
+    config: {ema_decay: 0.999}
+
+  - nome: abl-excluir-vazias
+    grupo: ablacao
+    eixo: amostragem
+    prioridade: 90
+    hipotese: >-
+      Remove do treino as 35% de cenas sem nenhuma edificacao, em vez de apenas
+      reduzir o peso delas para 0,25.
+    config: {excluir_cenas_vazias: true}
+
+  - nome: abl-encoder-effnet
+    grupo: ablacao
+    eixo: capacidade
+    prioridade: 90
+    hipotese: efficientnet_b0 — mesma faixa de custo do resnet34, outro desenho.
+    config: {encoder: efficientnet_b0}
+
+  - nome: abl-lr-encoder-igual
+    grupo: ablacao
+    eixo: otimizacao
+    prioridade: 90
+    hipotese: >-
+      Encoder com o mesmo lr do decoder (mult 1,0 em vez de 0,1). Testa se
+      frear o encoder pre-treinado ainda ajuda depois de 20 epocas.
+    config: {lr_encoder_mult: 1.0}

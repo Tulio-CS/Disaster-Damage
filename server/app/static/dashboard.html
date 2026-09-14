@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xBD lab</title>
+<style>
+  :root {
+    --bg:#0f1115; --painel:#171a21; --borda:#262b36; --txt:#e6e9ef; --fraco:#8b93a7;
+    --azul:#4c8dff; --verde:#3fb950; --amarelo:#d29922; --vermelho:#f85149; --roxo:#a371f7;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f6f7f9; --painel:#fff; --borda:#e2e5ea; --txt:#1a1d23; --fraco:#6b7280; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  a { color:var(--azul); }
+  header { display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+           padding:.9rem 1.2rem; border-bottom:1px solid var(--borda); background:var(--painel);
+           position:sticky; top:0; z-index:10; }
+  h1 { font-size:15px; margin:0; font-weight:650; letter-spacing:.02em; }
+  .pilulas { display:flex; gap:.45rem; flex-wrap:wrap; }
+  .pilula { font-size:12px; padding:.2rem .55rem; border-radius:99px; border:1px solid var(--borda);
+            background:var(--bg); font-variant-numeric:tabular-nums; }
+  .pilula b { font-weight:650; }
+  .espaco { flex:1 1 auto; }
+  main { padding:1.2rem; max-width:1600px; margin:0 auto; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--fraco);
+       margin:1.6rem 0 .7rem; font-weight:600; }
+  h2:first-child { margin-top:0; }
+
+  .grade { display:grid; gap:.7rem; grid-template-columns:repeat(auto-fill,minmax(285px,1fr)); }
+  .cartao { background:var(--painel); border:1px solid var(--borda); border-left-width:3px;
+            border-radius:9px; padding:.7rem .8rem; }
+  .cartao.rodando   { border-left-color:var(--azul); }
+  .cartao.concluido { border-left-color:var(--verde); }
+  .cartao.pendente  { border-left-color:var(--borda); opacity:.62; }
+  .cartao.erro      { border-left-color:var(--vermelho); }
+  .cartao.perdido   { border-left-color:var(--amarelo); }
+
+  .topo { display:flex; align-items:baseline; gap:.4rem; }
+  .slot { font-size:11px; color:var(--fraco); font-variant-numeric:tabular-nums; }
+  .nome { font-weight:620; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tag { font-size:10px; padding:.08rem .35rem; border-radius:4px; text-transform:uppercase;
+         letter-spacing:.05em; font-weight:650; margin-left:auto; flex:none; }
+  .tag.referencia { background:color-mix(in srgb,var(--roxo) 20%,transparent); color:var(--roxo); }
+  .tag.baseline   { background:color-mix(in srgb,var(--azul) 20%,transparent); color:var(--azul); }
+  .tag.ablacao    { background:color-mix(in srgb,var(--amarelo) 20%,transparent); color:var(--amarelo); }
+
+  .linha { display:flex; justify-content:space-between; gap:.5rem; font-size:12px;
+           color:var(--fraco); margin-top:.3rem; }
+  .linha span:last-child { color:var(--txt); font-variant-numeric:tabular-nums; text-align:right; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px; }
+
+  .barra { height:5px; background:var(--bg); border:1px solid var(--borda); border-radius:99px;
+           overflow:hidden; margin-top:.55rem; }
+  .barra > i { display:block; height:100%; background:var(--azul); transition:width .4s; }
+  .cartao.concluido .barra > i { background:var(--verde); }
+  .cartao.perdido  .barra > i { background:var(--amarelo); }
+
+  .ponto { width:7px; height:7px; border-radius:99px; display:inline-block; flex:none; }
+  .ponto.vivo { background:var(--verde); animation:pulsa 1.8s ease-in-out infinite; }
+  .ponto.frio { background:var(--amarelo); }
+  @keyframes pulsa { 50% { opacity:.25; } }
+
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:.4rem .6rem; border-bottom:1px solid var(--borda); }
+  th { color:var(--fraco); font-weight:600; font-size:11px; text-transform:uppercase;
+       letter-spacing:.05em; position:sticky; top:52px; background:var(--bg); }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; font-family:ui-monospace,Menlo,monospace; }
+  tr.ref { background:color-mix(in srgb,var(--roxo) 8%,transparent); }
+  .pos { color:var(--verde); } .neg { color:var(--vermelho); }
+  .env { display:block; overflow:hidden; border-radius:9px; border:1px solid var(--borda); }
+  .vazio { color:var(--fraco); padding:1.5rem; text-align:center; border:1px dashed var(--borda);
+           border-radius:9px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>xBD &middot; laboratório</h1>
+  <div class="pilulas" id="pilulas"></div>
+  <div class="espaco"></div>
+  <a href="/tb/" target="_blank" rel="noopener">TensorBoard ↗</a>
+  <a href="/api/resultados.csv">CSV</a>
+  <span class="slot" id="atualizado">—</span>
+</header>
+
+<main>
+  <h2>Slots</h2>
+  <div class="grade" id="grade"></div>
+
+  <h2>Placar — melhor score por experimento</h2>
+  <div id="placar"></div>
+
+  <h2>Máquinas</h2>
+  <div id="maquinas"></div>
+</main>
+
+<script>
+const fmt = (v, n = 4) => (v === null || v === undefined || Number.isNaN(v)) ? "—" : Number(v).toFixed(n);
+const esc = s => String(s ?? "").replace(/[<>&"]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+
+function idade(s) {
+  if (s === null || s === undefined) return "—";
+  if (s < 90) return `${s}s`;
+  if (s < 5400) return `${Math.round(s / 60)}min`;
+  return `${(s / 3600).toFixed(1)}h`;
+}
+
+// O slot e a unidade do painel, nao o run: um experimento que morreu e voltou
+// para a fila precisa continuar ocupando o mesmo quadro, senao some da tela.
+function juntar(estado) {
+  const porNome = new Map();
+  for (const r of estado.runs) {
+    const a = porNome.get(r.nome);
+    if (!a || (r.iniciado_em || 0) > (a.iniciado_em || 0)) porNome.set(r.nome, r);
+  }
+  return estado.experimentos.map(e => ({ exp: e, run: porNome.get(e.nome) || null }));
+}
+
+function cartao({ exp, run }) {
+  const st = run ? run.status : exp.status;
+  const classe = { rodando: "rodando", concluido: "concluido", erro: "erro", perdido: "perdido" }[st] || "pendente";
+  const ep = run ? run.epocas : 0;
+  const tot = (run && run.epochs_total) || exp.config.epochs || 30;
+  const pct = tot ? Math.min(100, 100 * ep / tot) : 0;
+  const melhor = (run && run.melhor) || {};
+  const ultima = (run && run.ultima) || {};
+  const vivo = run && run.vivo;
+
+  return `<div class="cartao ${classe}">
+    <div class="topo">
+      ${run && st === "rodando" ? `<span class="ponto ${vivo ? "vivo" : "frio"}"></span>` : ""}
+      <span class="slot">#${exp.slot ?? "–"}</span>
+      <span class="nome" title="${esc(exp.hipotese || exp.nome)}">${esc(exp.nome)}</span>
+      <span class="tag ${esc(exp.grupo)}">${esc(exp.grupo === "referencia" ? "ref" : exp.grupo)}</span>
+    </div>
+    <div class="linha"><span>${esc(exp.eixo || "—")}</span>
+      <span class="mono">${esc(run ? (run.hostname || run.worker || "") : "")}</span></div>
+    <div class="barra"><i style="width:${pct}%"></i></div>
+    <div class="linha"><span>época</span><span>${ep}/${tot}</span></div>
+    <div class="linha"><span>melhor score</span><span>${fmt(melhor.score_xview2)}</span></div>
+    <div class="linha"><span>última / loc / dano</span><span>${fmt(ultima.score_xview2, 3)} · ${fmt(ultima.f1_loc, 3)} · ${fmt(ultima.f1_dano_harmonico, 3)}</span></div>
+    <div class="linha"><span>${st}${run && ultima.img_por_s ? ` · ${fmt(ultima.img_por_s, 0)} img/s` : ""}</span>
+      <span>${run ? idade(run.idade_s) : "—"}</span></div>
+    ${run && run.erro ? `<div class="linha"><span class="mono neg" style="white-space:normal">${esc(String(run.erro).split("\n").filter(Boolean).pop() || "").slice(0, 160)}</span></div>` : ""}
+  </div>`;
+}
+
+function placar(pares) {
+  const linhas = pares
+    .filter(p => p.run && p.run.melhor && p.run.melhor.score_xview2 !== undefined)
+    .map(p => ({ ...p, s: Number(p.run.melhor.score_xview2) }))
+    .sort((a, b) => b.s - a.s);
+  if (!linhas.length) return `<div class="vazio">Nenhum score ainda. Aparecem após a primeira validação.</div>`;
+
+  const ref = linhas.find(l => l.exp.grupo === "referencia");
+  const base = ref ? ref.s : null;
+
+  return `<div class="env"><table><thead><tr>
+      <th>#</th><th>experimento</th><th>grupo</th><th>eixo</th>
+      <th class="num">score</th><th class="num">Δ vs ref</th>
+      <th class="num">F1 loc</th><th class="num">F1 dano</th><th class="num">ép.</th><th>máquina</th>
+    </tr></thead><tbody>${linhas.map((l, i) => {
+      const d = base === null ? null : l.s - base;
+      const cls = d === null || Math.abs(d) < 1e-9 ? "" : (d > 0 ? "pos" : "neg");
+      return `<tr class="${l.exp.grupo === "referencia" ? "ref" : ""}">
+        <td class="num">${i + 1}</td>
+        <td title="${esc(l.exp.hipotese || "")}">${esc(l.exp.nome)}</td>
+        <td>${esc(l.exp.grupo)}</td><td>${esc(l.exp.eixo || "—")}</td>
+        <td class="num"><b>${fmt(l.s)}</b></td>
+        <td class="num ${cls}">${d === null ? "—" : (d >= 0 ? "+" : "") + d.toFixed(4)}</td>
+        <td class="num">${fmt(l.run.melhor.f1_loc, 3)}</td>
+        <td class="num">${fmt(l.run.melhor.f1_dano_harmonico, 3)}</td>
+        <td class="num">${l.run.epocas}</td>
+        <td class="mono">${esc(l.run.hostname || "")}</td></tr>`;
+    }).join("")}</tbody></table></div>`;
+}
+
+function maquinas(estado) {
+  if (!estado.workers.length) return `<div class="vazio">Nenhuma máquina se registrou ainda.</div>`;
+  return `<div class="env"><table><thead><tr>
+      <th>host</th><th>GPU</th><th>estado</th><th>experimento</th><th class="num">visto há</th>
+    </tr></thead><tbody>${estado.workers.map(w => {
+      const r = estado.runs.find(x => x.run_id === w.run_id);
+      const frio = w.idade_s > estado.limite_seg;
+      return `<tr><td class="mono">${esc(w.hostname)}</td><td>${esc(w.gpu || "—")}</td>
+        <td>${frio ? "sem contato" : esc(w.status)}</td>
+        <td>${esc(r ? r.nome : "—")}</td>
+        <td class="num ${frio ? "neg" : ""}">${idade(w.idade_s)}</td></tr>`;
+    }).join("")}</tbody></table></div>`;
+}
+
+function pilulas(pares) {
+  const c = { rodando: 0, concluido: 0, pendente: 0, erro: 0, perdido: 0 };
+  for (const p of pares) {
+    const st = p.run ? p.run.status : p.exp.status;
+    c[st in c ? st : "pendente"]++;
+  }
+  const cor = { rodando: "var(--azul)", concluido: "var(--verde)", pendente: "var(--fraco)",
+                erro: "var(--vermelho)", perdido: "var(--amarelo)" };
+  return Object.entries(c).filter(([, n]) => n)
+    .map(([k, n]) => `<span class="pilula" style="color:${cor[k]}"><b>${n}</b> ${k}</span>`).join("");
+}
+
+async function tick() {
+  try {
+    const r = await fetch("/api/estado", { credentials: "same-origin" });
+    if (r.status === 401) { location.href = "/"; return; }
+    const estado = await r.json();
+    const pares = juntar(estado);
+    document.getElementById("pilulas").innerHTML = pilulas(pares);
+    document.getElementById("grade").innerHTML = pares.map(cartao).join("");
+    document.getElementById("placar").innerHTML = placar(pares);
+    document.getElementById("maquinas").innerHTML = maquinas(estado);
+    document.getElementById("atualizado").textContent = new Date().toLocaleTimeString("pt-BR");
+  } catch (e) {
+    document.getElementById("atualizado").textContent = "sem conexão";
+  }
+}
+
+tick();
+setInterval(tick, 5000);
+</script>
+</body>
+</html>

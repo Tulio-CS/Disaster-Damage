@@ -1,0 +1,37 @@
+# Ensaio geral: mesma mecanica da matriz real, em minutos e ate em CPU.
+#
+#     LAB_MATRIZ=experiments/matrix-smoke.yaml  (no servidor)
+#
+# Serve para provar o caminho inteiro — fila, treino, metricas, TensorBoard,
+# painel — antes de comprometer 20 GPUs por um dia. Rode isto assim que o painel
+# subir na VPS, de casa, com uma maquina so.
+#
+# Nao ha conclusao cientifica aqui: 2 epocas de 8 passos num encoder sem
+# pre-treino nao medem nada. O que se verifica e que os numeros CHEGAM.
+
+preset: smoke
+
+comum:
+  epochs: 2
+  max_steps: 8
+  crop: 256
+  usar_tier3: false
+
+experimentos:
+  - nome: smoke-ref
+    grupo: referencia
+    eixo: referencia
+    hipotese: Ensaio da referencia — confirma que o caminho fim a fim funciona.
+    config: {}
+
+  - nome: smoke-fusao-cat
+    grupo: ablacao
+    eixo: arquitetura
+    hipotese: Ensaio de uma ablacao — confirma que dois slots viram runs distintos.
+    config: {fuse_mode: cat}
+
+  - nome: smoke-loc
+    grupo: baseline
+    eixo: tarefa
+    hipotese: Ensaio de baseline com 2 classes — confirma o caminho da task 'loc'.
+    config: {task: loc}

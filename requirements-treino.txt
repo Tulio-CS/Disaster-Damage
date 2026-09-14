@@ -1,0 +1,17 @@
+# Dependencias das maquinas do laboratorio (treino apenas).
+#
+# `rasterio` e `shapely` NAO estao aqui: so a preparacao dos dados precisa deles,
+# e ela acontece uma vez na maquina que tem os GeoTIFF. As maquinas do
+# laboratorio recebem PNG prontos.
+#
+# O torch nao entra nesta lista porque a roda depende da versao do CUDA da
+# maquina; `scripts/lab_setup.sh` instala pelo indice certo antes deste arquivo.
+
+numpy>=1.26
+pandas>=2.1
+pyarrow>=15
+Pillow>=10
+opencv-python-headless>=4.9
+PyYAML>=6
+psutil>=5.9
+timm>=1.0

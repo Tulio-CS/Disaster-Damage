@@ -1,0 +1,40 @@
+# Dados brutos — 139 GB extraidos + 52 GB de tarball. Nunca versionar.
+geotiffs/
+*.tgz
+*.tar.gz
+
+# Indice derivado (reconstruivel com scripts/build_index.py)
+cache/
+
+# Dados preparados: ~30 GB de PNG + mascaras, derivados dos GeoTIFF por
+# `xbd.prep`. Chegam nas maquinas do laboratorio por rsync
+# (scripts/distribuir_dados.sh), nao por git.
+data/
+
+# Pesos. Dezenas de MB por arquivo e reescritos a cada epoca — git armazenaria
+# uma copia inteira de cada versao.
+checkpoints/
+*.pt
+*.pth
+
+# Resultados: os manifestos e o historico por epoca SAO versionados de proposito
+# (um arquivo por run, sem conflito de merge entre maquinas — ver xbd/runs.py).
+# O resto e transitorio de execucao.
+results/spool/
+results/logs/
+results/configs/
+agente.out
+*.log
+
+# Estado do painel (SQLite + tfevents); vive no volume da VPS.
+server/data/
+tb/
+
+# Ambiente
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/

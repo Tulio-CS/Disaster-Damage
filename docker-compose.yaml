@@ -1,0 +1,36 @@
+# Deploy do painel no Coolify (ou em qualquer host com Docker).
+#
+#   Coolify:  New Resource -> Docker Compose -> aponte para este arquivo.
+#             Defina LAB_TOKEN nas variaveis de ambiente do recurso e associe um
+#             dominio ao servico `lab` na porta 8000. O Coolify cuida do HTTPS.
+#
+#   Local:    LAB_TOKEN=$(python -c "import secrets;print(secrets.token_urlsafe(32))") \
+#               docker compose up --build
+#
+# O volume e o unico estado: SQLite com a fila e o progresso, e os tfevents do
+# TensorBoard. Faca backup dele antes de qualquer redeploy destrutivo.
+
+services:
+  lab:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    environment:
+      # Obrigatorio. O servico recusa subir sem token — fica exposto na internet.
+      LAB_TOKEN: ${LAB_TOKEN:?defina LAB_TOKEN}
+      LAB_DATA: /data
+      # Sem heartbeat por este tempo, o run vira 'perdido' e o slot volta para a
+      # fila. Precisa ser maior que a epoca mais lenta: com crop 768 numa GPU
+      # modesta uma epoca passa de 20 min, e um lease curto reenfileiraria um
+      # treino que esta apenas demorando.
+      LAB_LEASE_SEG: "2400"
+      PORT: "8000"
+    volumes:
+      - lab-data:/data
+    ports:
+      # No Coolify voce associa o dominio pela interface e pode remover isto.
+      - "8000:8000"
+
+volumes:
+  lab-data:
