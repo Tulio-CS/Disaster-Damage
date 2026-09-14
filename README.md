@@ -1,7 +1,14 @@
-# xBD / xView2 — analise exploratoria
+# xBD / xView2 — avaliação de danos em edificações
 
-Dataset de avaliacao de danos em edificacoes a partir de imagens de satelite pre e
-pos-desastre, na distribuicao **GeoTIFF** (`xview2_geotiff.tgz`).
+Estudo de ablação sobre segmentação de danos em edificações a partir de pares de
+imagens de satélite pré e pós-desastre (dataset **xBD** / desafio **xView2**).
+
+| documento | conteúdo |
+|---|---|
+| [METODOLOGIA.md](METODOLOGIA.md) | tarefa, dados, modelo, perda, métrica, protocolo, limitações |
+| [EXPERIMENTOS.md](EXPERIMENTOS.md) | os 24 experimentos, hipóteses, como ler os resultados, bibliografia |
+| [LABORATORIO.md](LABORATORIO.md) | procedimento operacional das 10 máquinas |
+| este arquivo | dados brutos e achados da análise exploratória |
 
 ## Estado dos dados
 
@@ -32,8 +39,11 @@ xbd/                         pacote de treino (config, dados, modelo, perdas, me
 xbd/agent.py                 agente que puxa experimentos da fila do painel
 xbd/reporter.py              cliente HTTP com spool em disco
 server/                      painel: fila, ingestao de metricas e TensorBoard
-experiments/matrix.yaml      os 20 experimentos (baselines + ablacoes)
-scripts/lab_*.sh             preparacao e execucao nas maquinas do laboratorio
+experiments/matrix.yaml      os 24 experimentos (referencia, baselines, ablacoes)
+scripts/validar_matriz.py    confere a matriz antes de rodar
+scripts/instalar.py          instala e dispara uma maquina, a partir do HD
+scripts/coletar.py           recolhe modelos e resultados de volta para o HD
+scripts/painel.py            administra a fila pela linha de comando
 ```
 
 ## Como rodar
@@ -69,3 +79,11 @@ com area em px e m²), `registration` (deslocamento pre→pos do mesmo predio) e
   quarteirao vizinho, nao para um desastre novo.
 
 A secao 14 do notebook traz a tabela completa de consequencias para o pipeline.
+Como cada achado virou decisao de projeto: [METODOLOGIA.md §2.3](METODOLOGIA.md).
+
+## Estado
+
+Pipeline de treino implementado e em execucao em 10 maquinas. Os 24 experimentos
+sao puxados de uma fila central; metricas e curvas em tempo real no painel, e os
+pesos ficam no disco de cada maquina ate a coleta. Detalhes operacionais em
+[LABORATORIO.md](LABORATORIO.md).
