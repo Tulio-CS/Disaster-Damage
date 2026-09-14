@@ -7,6 +7,7 @@ imagens de satélite pré e pós-desastre (dataset **xBD** / desafio **xView2**)
 |---|---|
 | [METODOLOGIA.md](METODOLOGIA.md) | tarefa, dados, modelo, perda, métrica, protocolo, limitações |
 | [EXPERIMENTOS.md](EXPERIMENTOS.md) | os 24 experimentos, hipóteses, como ler os resultados, bibliografia |
+| [RESULTADOS.md](RESULTADOS.md) | o que os 24 experimentos mediram, e o que concluir |
 | [LABORATORIO.md](LABORATORIO.md) | procedimento operacional das 10 máquinas |
 | este arquivo | dados brutos e achados da análise exploratória |
 
