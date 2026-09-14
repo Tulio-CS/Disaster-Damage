@@ -309,6 +309,27 @@ XBD-LAB/
 **Edite `lab.env` e cole o `LAB_TOKEN`** antes de sair. E o que evita digitar o
 token dez vezes.
 
+### 5.3 Conferir antes de sair
+
+```bash
+bash scripts/conferir_hd.sh /media/$USER/XBD-LAB
+```
+
+Confere estrutura, se o token foi preenchido, e lê o índice do tar para contar
+as 11.034 cenas. ~2 min, e é a última chance de descobrir um problema ainda em
+casa.
+
+Depois, desmonte com segurança:
+
+```bash
+sync && udisksctl unmount -b /dev/sdb1
+```
+
+Não arranque o cabo direto. Depois de escrever 33 GB há cache pendente, e em
+NTFS um desligamento sujo marca o volume como *dirty* — o Windows então exige
+`chkdsk` antes de montar, e você descobre isso parado na frente da primeira
+máquina.
+
 Os dados viram um `.tar` unico em vez de 22.068 arquivos soltos porque copiar
 milhares de arquivos pequenos de um HD USB e dominado por latencia de acesso:
 cai para 20-40 MB/s, contra ~110 MB/s de leitura sequencial. Sao ~25 min contra
