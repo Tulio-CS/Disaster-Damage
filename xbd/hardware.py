@@ -276,9 +276,16 @@ def plan(hw: Hardware, *, crop: int = 512, encoder: str = "resnet34",
         por_cpu = max(0, hw.cpu_logical - 2)
         # cada worker segura batch de imagens 1024x1024 descomprimidas: ~1.5 GB de folga
         por_ram = int(max(0, hw.ram_available_gb - 2.0) / 1.5) if hw.ram_available_gb else 4
-        num_workers = max(0, min(por_cpu, por_ram, 8))
+        # No Windows o multiprocessing usa spawn, nao fork: cada worker sobe um
+        # interpretador novo e reimporta torch (~3 s cada). Com 8 workers isso
+        # custa meio minuto por epoca so de partida, e `persistent_workers` nao
+        # cobre a validacao. 4 e o ponto em que o custo para de compensar.
+        teto = 4 if platform.system() == "Windows" else 8
+        num_workers = max(0, min(por_cpu, por_ram, teto))
         if por_ram < por_cpu:
             notas.append(f"workers limitados pela RAM livre ({hw.ram_available_gb:.1f} GB), nao pela CPU")
+        elif teto < por_cpu:
+            notas.append(f"workers limitados a {teto}: spawn do Windows encarece cada worker")
 
     # ---- precisao ----
     if precision is None:
