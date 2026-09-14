@@ -124,6 +124,10 @@ class Agente:
                "--ckpt-dir", str(self.args.ckpt_dir)]
         if self.args.autotune:
             cmd.append("--autotune")
+        # Valvula de escape sem editar codigo: basta acrescentar LAB_NO_COMPILE=1
+        # ao lab.env do HD para desligar o torch.compile em todas as maquinas.
+        if os.environ.get("LAB_NO_COMPILE") not in (None, "", "0"):
+            cmd.append("--no-compile")
 
         env = {**os.environ,
                "LAB_URL": self.args.url, "LAB_TOKEN": self.args.token,

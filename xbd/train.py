@@ -72,6 +72,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--num-workers", type=int)
     ap.add_argument("--precision", choices=["bf16", "fp16", "fp32"])
     ap.add_argument("--autotune", action="store_true", help="acha empiricamente o maior batch")
+    ap.add_argument("--no-compile", action="store_true",
+                    help="desliga torch.compile mesmo onde o plano o habilitaria")
     ap.add_argument("--no-resume", action="store_true")
     ap.add_argument("--dry-run", action="store_true", help="mostra o plano e sai")
     args = ap.parse_args(argv)
@@ -168,11 +170,19 @@ def main(argv: list[str] | None = None) -> int:
     scaler = torch.amp.GradScaler("cuda") if plano.precision == "fp16" and plano.device == "cuda" else None
     ema = EMA(modelo, cfg.ema_decay) if cfg.ema_decay > 0 else None
 
-    if plano.compile_model:
+    if plano.compile_model and not args.no_compile:
+        # `torch.compile` e PREGUICOSO: esta chamada so embrulha o modulo e
+        # retorna. A compilacao de verdade acontece no primeiro forward, ja
+        # dentro de `treinar_epoca` — fora deste try, que portanto nunca captura
+        # a falha real. O fallback tem que ser configurado no proprio dynamo.
         try:
-            modelo = torch.compile(modelo)
-        except Exception as exc:
-            print(f"! torch.compile falhou ({exc}); seguindo sem compilar")
+            import torch._dynamo
+            torch._dynamo.config.suppress_errors = True   # grafo que falhar cai
+            modelo = torch.compile(modelo)                # para eager, sem matar
+        except Exception as exc:                          # o treino
+            print(f"! torch.compile indisponivel ({exc}); seguindo sem compilar")
+    elif args.no_compile and plano.compile_model:
+        print("torch.compile desligado por --no-compile")
 
     ckpt_dir = Path(cfg.ckpt_dir) / cfg.run_id
     ck_ultimo, ck_melhor = ckpt_dir / "ultimo.pt", ckpt_dir / "melhor.pt"
