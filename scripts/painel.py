@@ -92,7 +92,11 @@ def cmd_estado(_args) -> int:
     contagem: dict[str, int] = {}
     for e in sorted(st["experimentos"], key=lambda x: (x["prioridade"], x["slot"] or 0)):
         r = runs.get(e["nome"]) or {}
-        sit = r.get("status") or e["status"]
+        # A fila manda. O run que falhou continua com status 'erro' em `runs`,
+        # mas isso e historico: se o slot voltou para a fila, ele esta pendente.
+        sit = e["status"]
+        if sit == "pendente" and r.get("status") in ("erro", "perdido", "interrompido"):
+            sit = "pendente*"      # * = tentativa anterior falhou
         contagem[sit] = contagem.get(sit, 0) + 1
         tot = (r.get("epochs_total") or e["config"].get("epochs") or "?")
         ep = f"{r.get('epocas', 0)}/{tot}" if r else "—"
@@ -103,6 +107,8 @@ def cmd_estado(_args) -> int:
 
     print()
     print("  ".join(f"{n} {k}" for k, n in sorted(contagem.items())))
+    if any(k.endswith("*") for k in contagem):
+        print("\n* slot de volta na fila; a tentativa anterior falhou")
     return 0
 
 
@@ -153,9 +159,7 @@ def cmd_resetar(args) -> int:
     if args.tudo:
         alvos = [e["nome"] for e in st["experimentos"]]
     elif args.erro:
-        alvos = [e["nome"] for e in st["experimentos"]
-                 if (runs.get(e["nome"], {}).get("status") or e["status"])
-                 in ("erro", "perdido")]
+        alvos = [e["nome"] for e in st["experimentos"] if e["status"] == "erro"]
     elif args.nomes:
         validos = {e["nome"] for e in st["experimentos"]}
         alvos = [n for n in args.nomes if n in validos]

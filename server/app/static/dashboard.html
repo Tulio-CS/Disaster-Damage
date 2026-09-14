@@ -119,8 +119,15 @@ function juntar(estado) {
 }
 
 function cartao({ exp, run }) {
-  const st = run ? run.status : exp.status;
-  const classe = { rodando: "rodando", concluido: "concluido", erro: "erro", perdido: "perdido" }[st] || "pendente";
+  // A FILA manda, nao o ultimo run. Um slot devolvido para a fila volta a
+  // 'pendente' em `experimentos`, mas o run que falhou continua com status
+  // 'erro' na tabela `runs` — ele e historico. Ler o run aqui fazia o painel
+  // mostrar 20 cartoes vermelhos numa fila inteiramente pendente, e parecer
+  // que o reset nao tinha funcionado.
+  const st = exp.status;
+  const classe = { rodando: "rodando", concluido: "concluido", erro: "erro" }[st] || "pendente";
+  // Tentativa anterior que falhou, num slot que ja voltou para a fila.
+  const refez = run && st === "pendente" && ["erro", "perdido", "interrompido"].includes(run.status);
   const ep = run ? run.epocas : 0;
   const tot = (run && run.epochs_total) || exp.config.epochs || 30;
   const pct = tot ? Math.min(100, 100 * ep / tot) : 0;
@@ -141,9 +148,9 @@ function cartao({ exp, run }) {
     <div class="linha"><span>época</span><span>${ep}/${tot}</span></div>
     <div class="linha"><span>melhor score</span><span>${fmt(melhor.score_xview2)}</span></div>
     <div class="linha"><span>última / loc / dano</span><span>${fmt(ultima.score_xview2, 3)} · ${fmt(ultima.f1_loc, 3)} · ${fmt(ultima.f1_dano_harmonico, 3)}</span></div>
-    <div class="linha"><span>${st}${run && ultima.img_por_s ? ` · ${fmt(ultima.img_por_s, 0)} img/s` : ""}</span>
-      <span>${run ? idade(run.idade_s) : "—"}</span></div>
-    ${run && run.erro ? `<div class="linha"><span class="mono neg" style="white-space:normal">${esc(String(run.erro).split("\n").filter(Boolean).pop() || "").slice(0, 160)}</span></div>` : ""}
+    <div class="linha"><span>${st}${refez ? " (após falha)" : ""}${run && st === "rodando" && ultima.img_por_s ? ` · ${fmt(ultima.img_por_s, 0)} img/s` : ""}</span>
+      <span>${run && st !== "pendente" ? idade(run.idade_s) : "—"}</span></div>
+    ${st === "erro" && run && run.erro ? `<div class="linha"><span class="mono neg" style="white-space:normal">${esc(String(run.erro).split("\n").filter(Boolean).pop() || "").slice(0, 160)}</span></div>` : ""}
   </div>`;
 }
 
@@ -194,7 +201,7 @@ function maquinas(estado) {
 function pilulas(pares) {
   const c = { rodando: 0, concluido: 0, pendente: 0, erro: 0, perdido: 0 };
   for (const p of pares) {
-    const st = p.run ? p.run.status : p.exp.status;
+    const st = p.exp.status;            // a fila manda, ver cartao()
     c[st in c ? st : "pendente"]++;
   }
   const cor = { rodando: "var(--azul)", concluido: "var(--verde)", pendente: "var(--fraco)",
