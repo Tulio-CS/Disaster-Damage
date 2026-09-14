@@ -1,8 +1,28 @@
-# Matriz de experimentos do laboratorio (20 maquinas).
+# Matriz de experimentos do laboratorio.
 #
 # Cada entrada vira um slot na fila. As maquinas PUXAM o proximo slot livre em
 # vez de receber uma atribuicao fixa: quem termina antes pega o proximo, e um
 # slot cuja maquina morreu volta para a fila sozinho.
+#
+# ---------------------------------------------------------------------------
+# Ondas (campo `prioridade`, menor = mais cedo)
+#
+# Sao 24 slots para 10 maquinas, entao a ordem da fila decide o que existe ao
+# fim do primeiro dia. As prioridades formam ondas de 10:
+#
+#   onda 1  (0-5)   ref + 2 replicas de semente + 2 baselines + 5 ablacoes
+#   onda 2  (20)    os 4 folds restantes + as 6 ablacoes restantes
+#   reserva (90)    so se sobrar maquina
+#
+# A onda 1 nao e "os 10 primeiros da lista": e uma selecao. Com 10 maquinas,
+# deixar a prioridade por grupo (referencia < baseline < ablacao) faria o
+# primeiro dia inteiro ser 9 baselines e 1 ablacao — os 5 folds de generalizacao
+# comeriam metade das maquinas antes de qualquer ablacao comecar. A onda 1
+# mistura de proposito: fecha o piso de ruido, roda 1 fold agrupado, e ja
+# entrega as 5 ablacoes que testam as hipoteses centrais do modelo.
+#
+# Para rodar tudo num dia so, corte `epochs` em `comum` — com 10 epocas cabem
+# duas rodadas por maquina.
 #
 # ---------------------------------------------------------------------------
 # Como ler
@@ -58,6 +78,7 @@ experimentos:
   - nome: base-loc-only
     grupo: baseline
     eixo: tarefa
+    prioridade: 5
     hipotese: >-
       So localizacao (2 classes). Separa quanto do score xView2 vem de achar o
       predio e quanto vem de classificar a severidade — o termo dificil.
@@ -67,6 +88,7 @@ experimentos:
   - nome: base-grouped-f0
     grupo: baseline
     eixo: generalizacao
+    prioridade: 5
     hipotese: >-
       Split agrupado por desastre: nenhum evento aparece no treino e na
       validacao. A EDA mostrou que >65% dos tiles de hold sao vizinhos (<500 m)
@@ -77,30 +99,35 @@ experimentos:
   - nome: base-grouped-f1
     grupo: baseline
     eixo: generalizacao
+    prioridade: 20
     hipotese: Split agrupado por desastre, fold 1.
     config: {split_mode: grouped, fold: 1}
 
   - nome: base-grouped-f2
     grupo: baseline
     eixo: generalizacao
+    prioridade: 20
     hipotese: Split agrupado por desastre, fold 2.
     config: {split_mode: grouped, fold: 2}
 
   - nome: base-grouped-f3
     grupo: baseline
     eixo: generalizacao
+    prioridade: 20
     hipotese: Split agrupado por desastre, fold 3.
     config: {split_mode: grouped, fold: 3}
 
   - nome: base-grouped-f4
     grupo: baseline
     eixo: generalizacao
+    prioridade: 20
     hipotese: Split agrupado por desastre, fold 4.
     config: {split_mode: grouped, fold: 4}
 
   - nome: base-semente-1337
     grupo: baseline
     eixo: ruido
+    prioridade: 1
     hipotese: >-
       Referencia com outra semente. Junto com o slot 9, define o piso de ruido:
       abaixo desse espalhamento, nenhuma ablacao mediu efeito.
@@ -109,6 +136,7 @@ experimentos:
   - nome: base-semente-2024
     grupo: baseline
     eixo: ruido
+    prioridade: 1
     hipotese: Referencia com uma terceira semente.
     config: {seed: 2024}
 
@@ -117,6 +145,7 @@ experimentos:
   - nome: abl-sem-siamese
     grupo: ablacao
     eixo: arquitetura
+    prioridade: 5
     hipotese: >-
       Sem encoder siames: a rede so ve a imagem PRE e nunca compara as datas.
       Mede o teto de quem tenta inferir dano sem a imagem pos — deve desabar. Se
@@ -126,6 +155,7 @@ experimentos:
   - nome: abl-fusao-cat
     grupo: ablacao
     eixo: arquitetura
+    prioridade: 5
     hipotese: >-
       Fusao [pre | pos] sem o termo |pos-pre|. Testa a hipotese central do
       modelo: a diferenca em espaco de features precisa ser dada de graca, ou a
@@ -135,6 +165,7 @@ experimentos:
   - nome: abl-fusao-diff
     grupo: ablacao
     eixo: arquitetura
+    prioridade: 20
     hipotese: >-
       Fusao so com |pos-pre|, sem a aparencia crua. Se empatar com a referencia,
       a aparencia e redundante e o modelo pode ficar 15% menor.
@@ -143,6 +174,7 @@ experimentos:
   - nome: abl-sem-pretrained
     grupo: ablacao
     eixo: inicializacao
+    prioridade: 5
     hipotese: >-
       Encoder do zero. Imagem de satelite nadir nao se parece com ImageNet;
       quantifica o quanto o pre-treino ainda paga nesse dominio.
@@ -151,6 +183,7 @@ experimentos:
   - nome: abl-sem-oversample
     grupo: ablacao
     eixo: amostragem
+    prioridade: 5
     hipotese: >-
       Sampler uniforme. Com 10:1 a favor de no-damage e 1 em 3 cenas com dano, a
       maioria dos passos nao veria classe positiva. Deve derrubar sobretudo o F1
@@ -160,6 +193,7 @@ experimentos:
   - nome: abl-sem-tier3
     grupo: ablacao
     eixo: dados
+    prioridade: 20
     hipotese: >-
       So tier1 (5.598 cenas contra 18.336). Se o score cair pouco, as 12.738
       cenas de tier3 estao pagando pouco pelo tempo de treino que custam.
@@ -168,6 +202,7 @@ experimentos:
   - nome: abl-crop256
     grupo: ablacao
     eixo: resolucao
+    prioridade: 5
     hipotese: >-
       Crop 256. Mais cenas por passo, menos contexto. Com 71% das edificacoes
       abaixo de 32x32 px, o contexto pode importar menos que o numero de amostras.
@@ -176,6 +211,7 @@ experimentos:
   - nome: abl-crop768
     grupo: ablacao
     eixo: resolucao
+    prioridade: 20
     hipotese: >-
       Crop 768. Mais contexto por passo, menos passos no mesmo tempo. Fecha a
       curva de resolucao junto com os slots de 256 e 512.
@@ -184,6 +220,7 @@ experimentos:
   - nome: abl-encoder-seresnext50
     grupo: ablacao
     eixo: capacidade
+    prioridade: 20
     hipotese: >-
       Encoder maior (seresnext50_32x4d). Separa "falta capacidade" de "falta
       sinal": se o ganho for marginal, o gargalo e o rotulo, nao o modelo.
@@ -192,6 +229,7 @@ experimentos:
   - nome: abl-norm-imagenet
     grupo: ablacao
     eixo: normalizacao
+    prioridade: 20
     hipotese: >-
       Estatisticas do ImageNet no lugar das medidas no xBD (media 0,33/0,36/0,27
       contra 0,49/0,46/0,41). Barato de testar e costuma ser copiado sem
@@ -201,6 +239,7 @@ experimentos:
   - nome: abl-perda-ce
     grupo: ablacao
     eixo: perda
+    prioridade: 20
     hipotese: >-
       Entropia cruzada ponderada + dice, sem o termo focal. Com pesos por classe
       ja aplicados, parte do trabalho do focal e redundante; isola se o gamma
