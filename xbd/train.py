@@ -176,8 +176,13 @@ def main(argv: list[str] | None = None) -> int:
         # dentro de `treinar_epoca` — fora deste try, que portanto nunca captura
         # a falha real. O fallback tem que ser configurado no proprio dynamo.
         try:
-            import torch._dynamo
-            torch._dynamo.config.suppress_errors = True   # grafo que falhar cai
+            # `from torch import _dynamo`, e NAO `import torch._dynamo`: a segunda
+            # forma liga o nome `torch` ao escopo LOCAL desta funcao, e o Python
+            # decide isso em tempo de compilacao. Todas as linhas acima que usam
+            # `torch` passariam a levantar UnboundLocalError, mesmo com este `if`
+            # nunca executando.
+            from torch import _dynamo
+            _dynamo.config.suppress_errors = True         # grafo que falhar cai
             modelo = torch.compile(modelo)                # para eager, sem matar
         except Exception as exc:                          # o treino
             print(f"! torch.compile indisponivel ({exc}); seguindo sem compilar")
