@@ -125,13 +125,13 @@ tfevents do TensorBoard. Sem ele, um redeploy zera os resultados do dia.
 
 ### 2.5 Domínio e deploy
 
-Em **Domains**, ponha o FQDN (ex.: `https://lab.seudominio.com`). O Coolify
+Em **Domains**, ponha o FQDN (ex.: `https://experimento.tremdigital.com.br`). O Coolify
 provisiona o HTTPS via Let's Encrypt. Depois **Deploy**.
 
 ### 2.6 Conferir
 
 ```bash
-curl https://lab.seudominio.com/api/saude
+curl https://experimento.tremdigital.com.br/api/saude
 # {"ok":true,"t":...}
 ```
 
@@ -149,7 +149,7 @@ mensagem — ele roda como subprocesso e o log dele fica em `/data/tensorboard.l
 Abra o painel no navegador:
 
 ```
-https://lab.seudominio.com/entrar?t=SEU_TOKEN
+https://experimento.tremdigital.com.br/entrar?t=SEU_TOKEN
 ```
 
 Isso troca o token por um cookie; daí em diante `/` e `/tb/` funcionam sem
@@ -187,6 +187,56 @@ Três propriedades que importam num laboratório:
   o painel devolve o mesmo experimento para a mesma máquina, que retoma da época
   em que parou em vez de recomeçar do zero.
 
+### 3.1 Confirmar de dentro do laboratório
+
+Faça isto numa máquina do laboratório **antes** de instalar as 20. Leva segundos,
+não consome slot da fila e não precisa do venv pronto:
+
+```bash
+export LAB_URL=https://experimento.tremdigital.com.br
+export LAB_TOKEN=xxxx
+bash scripts/testar_conexao.sh
+```
+
+Saída esperada:
+
+```
+  ok    DNS                        92.113.39.129  (6 ms)
+  ok    TLS + certificado          TLSv1.3  emissor=Let's Encrypt  (405 ms)
+  ok    GET /api/saude             HTTP 200  {'ok': True, ...}  (234 ms)
+  ok    GET /api/estado (token)    HTTP 200  24 experimentos (24 pendentes)
+```
+
+O teste usa `urllib.request`, a mesma pilha do `xbd/reporter.py` — **não** `curl`.
+A diferença importa: `curl` carrega o próprio bundle de CA e o Python usa o do
+OpenSSL. Numa rede com proxy de inspeção TLS, o navegador e o `curl` passam (a CA
+corporativa está instalada para eles) e o agente falha com
+`CERTIFICATE_VERIFY_FAILED`. Testar com `curl` daria um falso OK, e o erro só
+apareceria quando a primeira época tentasse subir — horas depois.
+
+Se algum passo falhar, o script já imprime o que fazer. Os dois casos prováveis
+numa rede institucional:
+
+```bash
+# proxy de inspeção TLS: peça a CA ao administrador
+export SSL_CERT_FILE=/caminho/ca-corporativa.pem
+
+# rede que exige proxy: urllib respeita isto sozinho, o agente também usa
+export https_proxy=http://proxy.local:3128
+```
+
+Exporte junto com `LAB_URL`/`LAB_TOKEN` antes do `lab_worker.sh`.
+
+Nas 20 de uma vez, depois que o SSH sem senha estiver configurado:
+
+```bash
+for m in $(grep -vE '^\s*(#|$)' experiments/maquinas.txt); do
+  echo "== $m"
+  ssh "$m" "cd ~/Disaster-Damage && LAB_URL=$LAB_URL LAB_TOKEN=$LAB_TOKEN \
+    bash scripts/testar_conexao.sh 2>&1 | tail -2"
+done
+```
+
 ---
 
 ## 4. Ensaio geral (antes de comprometer 20 GPUs)
@@ -198,7 +248,7 @@ No Coolify, mude temporariamente a variável `LAB_MATRIZ` para
 `/app/experiments/matrix-smoke.yaml`... **ou**, mais simples, sem tocar no deploy:
 
 ```bash
-curl -X POST https://lab.seudominio.com/api/matriz \
+curl -X POST https://experimento.tremdigital.com.br/api/matriz \
   -H "Authorization: Bearer $LAB_TOKEN" -H 'Content-Type: application/json' \
   --data "$(python3 -c '
 import json,sys; print(json.dumps({"yaml": open("experiments/matrix-smoke.yaml").read()}))')"
@@ -207,7 +257,7 @@ import json,sys; print(json.dumps({"yaml": open("experiments/matrix-smoke.yaml")
 Depois, na sua máquina mesmo:
 
 ```bash
-export LAB_URL=https://lab.seudominio.com LAB_TOKEN=xxxx
+export LAB_URL=https://experimento.tremdigital.com.br LAB_TOKEN=xxxx
 .venv/bin/python -m xbd.agent --sair-vazio
 ```
 
@@ -215,7 +265,7 @@ Confira no painel que os 3 slots ficaram verdes e que aparecem curvas em `/tb/`.
 Depois recarregue a matriz real:
 
 ```bash
-curl -X POST https://lab.seudominio.com/api/matriz \
+curl -X POST https://experimento.tremdigital.com.br/api/matriz \
   -H "Authorization: Bearer $LAB_TOKEN" -H 'Content-Type: application/json' \
   --data "$(python3 -c '
 import json; print(json.dumps({"yaml": open("experiments/matrix.yaml").read()}))')"
@@ -327,7 +377,7 @@ seguir.
 ### 6.3 Disparar
 
 ```bash
-export LAB_URL=https://lab.seudominio.com
+export LAB_URL=https://experimento.tremdigital.com.br
 export LAB_TOKEN=xxxx
 bash scripts/lab_worker.sh
 ```
@@ -336,7 +386,7 @@ Para deixar rodando depois de fechar a sessão SSH (o caso normal):
 
 ```bash
 cd ~/Disaster-Damage
-export LAB_URL=https://lab.seudominio.com LAB_TOKEN=xxxx
+export LAB_URL=https://experimento.tremdigital.com.br LAB_TOKEN=xxxx
 setsid nohup bash scripts/lab_worker.sh > agente.out 2>&1 &
 tail -f agente.out
 ```
@@ -348,7 +398,7 @@ Depois de conferir que funciona em uma:
 ```bash
 for m in $(grep -vE '^\s*(#|$)' experiments/maquinas.txt); do
   ssh "$m" "cd ~/Disaster-Damage && \
-    LAB_URL=https://lab.seudominio.com LAB_TOKEN=xxxx \
+    LAB_URL=https://experimento.tremdigital.com.br LAB_TOKEN=xxxx \
     setsid nohup bash scripts/lab_worker.sh > agente.out 2>&1 &" &
 done; wait
 ```
@@ -362,9 +412,9 @@ Em seguida abra o painel: em um ou dois minutos as 20 máquinas aparecem na tabe
 
 | O quê | Onde |
 |---|---|
-| Estado das 20 máquinas, progresso por época, placar | `https://lab.seudominio.com/` |
-| Curvas de treino e validação, aba HPARAMS | `https://lab.seudominio.com/tb/` |
-| Tabela final para análise | `https://lab.seudominio.com/api/resultados.csv` |
+| Estado das 20 máquinas, progresso por época, placar | `https://experimento.tremdigital.com.br/` |
+| Curvas de treino e validação, aba HPARAMS | `https://experimento.tremdigital.com.br/tb/` |
+| Tabela final para análise | `https://experimento.tremdigital.com.br/api/resultados.csv` |
 
 No TensorBoard, o seletor de runs aceita regex: `^baseline` mostra só as
 referências, `^ablacao` só o estudo.
@@ -386,7 +436,7 @@ recebe o mesmo experimento de volta e retoma do checkpoint local.
 **Quero devolver um slot travado para a fila manualmente:**
 
 ```bash
-curl -X POST https://lab.seudominio.com/api/experimentos/NOME/liberar \
+curl -X POST https://experimento.tremdigital.com.br/api/experimentos/NOME/liberar \
      -H "Authorization: Bearer $LAB_TOKEN"
 ```
 
