@@ -1,7 +1,7 @@
 # Runbook do dia de laboratório
 
-Guia operacional: preparar os dados, subir o painel no Coolify, distribuir para as
-20 máquinas e disparar os experimentos.
+Guia operacional: preparar os dados, subir o painel no Coolify, preparar o HD e
+disparar os experimentos nas 10 máquinas Windows do laboratório.
 
 ---
 
@@ -12,8 +12,8 @@ Guia operacional: preparar os dados, subir o painel no Coolify, distribuir para 
 | 1 | Preparar os dados (GeoTIFF → PNG) | sua máquina | ~25 min | — |
 | 2 | Subir o painel no Coolify | navegador | ~10 min | sim, durante a 1 |
 | 3 | Ensaio geral (matriz smoke) | 1 máquina | ~5 min | depois da 2 |
-| 4 | Distribuir código + dados | rede do lab | 30-95 min | — |
-| 5 | Instalar e disparar em cada máquina | 20 máquinas | ~10 min cada | sim, todas juntas |
+| 4 | Preparar o HD externo (exFAT + 33 GB) | sua máquina | ~15 min | sim, durante a 1 |
+| 5 | Rodar `INSTALAR.bat` em cada máquina | 10 máquinas | ~15 min cada | não — um HD só |
 
 As etapas 1 e 2 são independentes: comece a preparação dos dados e configure o
 Coolify enquanto ela roda.
@@ -177,7 +177,7 @@ alcança a internet, o agente também alcança.
 
 Três propriedades que importam num laboratório:
 
-- **Posse exclusiva da fila.** As 20 máquinas puxam trabalho em vez de receber
+- **Posse exclusiva da fila.** As 10 máquinas puxam trabalho em vez de receber
   atribuição fixa. Quem termina primeiro pega o próximo slot. Um `BEGIN IMMEDIATE`
   no SQLite garante que duas máquinas nunca recebem o mesmo experimento.
 - **A rede não derruba o treino.** Cada métrica é gravada primeiro num spool em
@@ -189,59 +189,38 @@ Três propriedades que importam num laboratório:
 
 ### 3.1 Confirmar de dentro do laboratório
 
-Faça isto numa máquina do laboratório **antes** de instalar as 20. Leva segundos,
-não consome slot da fila e não precisa do venv pronto:
-
-```bash
-export LAB_URL=https://experimento.tremdigital.com.br
-export LAB_TOKEN=xxxx
-bash scripts/testar_conexao.sh
-```
-
-Saída esperada:
+O `INSTALAR.bat` já testa isso sozinho, na etapa 5 de 6, e avisa se falhar. Mas
+se quiser confirmar antes de comprometer as 10 máquinas, leve o HD a **uma** e
+abra o PowerShell:
 
 ```
-  ok    DNS                        92.113.39.129  (6 ms)
-  ok    TLS + certificado          TLSv1.3  emissor=Let's Encrypt  (405 ms)
-  ok    GET /api/saude             HTTP 200  {'ok': True, ...}  (234 ms)
+python E:\Disaster-Damage\scripts\testar_conexao.py
+```
+
+Esperado:
+
+```
+  ok    DNS                        92.113.39.129
+  ok    TLS + certificado          TLSv1.3  emissor=Let's Encrypt
+  ok    GET /api/saude             HTTP 200
   ok    GET /api/estado (token)    HTTP 200  24 experimentos (24 pendentes)
 ```
 
-O teste usa `urllib.request`, a mesma pilha do `xbd/reporter.py` — **não** `curl`.
-A diferença importa: `curl` carrega o próprio bundle de CA e o Python usa o do
-OpenSSL. Numa rede com proxy de inspeção TLS, o navegador e o `curl` passam (a CA
-corporativa está instalada para eles) e o agente falha com
-`CERTIFICATE_VERIFY_FAILED`. Testar com `curl` daria um falso OK, e o erro só
-apareceria quando a primeira época tentasse subir — horas depois.
+O teste usa `urllib.request`, a mesma pilha do `xbd/reporter.py`. Numa rede com
+proxy de inspeção TLS — comum em instituição — o navegador confia porque a CA
+corporativa está instalada para ele, e o Python rejeita com
+`CERTIFICATE_VERIFY_FAILED`. Testar pelo navegador daria um falso OK, e o erro
+só apareceria quando a primeira época tentasse subir.
 
-Se algum passo falhar, o script já imprime o que fazer. Os dois casos prováveis
-numa rede institucional:
+Se for o caso, peça a CA ao administrador da rede e defina antes de instalar:
 
-```bash
-# proxy de inspeção TLS: peça a CA ao administrador
-export SSL_CERT_FILE=/caminho/ca-corporativa.pem
-
-# rede que exige proxy: urllib respeita isto sozinho, o agente também usa
-export https_proxy=http://proxy.local:3128
 ```
-
-Exporte junto com `LAB_URL`/`LAB_TOKEN` antes do `lab_worker.sh`.
-
-Nas 20 de uma vez, depois que o SSH sem senha estiver configurado:
-
-```bash
-for m in $(grep -vE '^\s*(#|$)' experiments/maquinas.txt); do
-  echo "== $m"
-  ssh "$m" "cd ~/Disaster-Damage && LAB_URL=$LAB_URL LAB_TOKEN=$LAB_TOKEN \
-    bash scripts/testar_conexao.sh 2>&1 | tail -2"
-done
+set SSL_CERT_FILE=C:\caminho\ca-corporativa.pem
 ```
-
----
 
 ## 4. Ensaio geral (antes de comprometer 20 GPUs)
 
-Rode a matriz `smoke` numa máquina só — 3 experimentos de 2 épocas, minutos, roda
+Rode a matriz `smoke` na SUA máquina — 3 experimentos de 2 épocas, minutos, roda
 até em CPU. Prova o caminho inteiro antes do investimento real.
 
 No Coolify, mude temporariamente a variável `LAB_MATRIZ` para
@@ -273,155 +252,110 @@ import json; print(json.dumps({"yaml": open("experiments/matrix.yaml").read()}))
 
 ---
 
-## 5. Distribuir para as 20 máquinas
+## 5. Preparar o HD externo
 
-### 5.1 O que vai
+As 10 maquinas rodam **Windows**, voce **nao tem privilegio de administrador**
+nelas, e a distribuicao e por HD. Isso define tres coisas:
 
-| Vai | Não vai |
+| Restricao | Consequencia |
 |---|---|
-| `xbd/` — pacote de treino | `geotiffs/` (131 GB) |
-| `scripts/` | `xview2_geotiff.tgz` (52 GB) |
-| `experiments/` | `.venv/` (cada máquina monta o seu) |
-| `requirements-treino.txt` | `cache/`, `checkpoints/`, `results/` |
-| `data/images/`, `data/masks/`, `data/index.parquet` (~32 GB) | |
+| HD lido no Windows | exFAT ou NTFS. `ext4` nao serve; FAT32 tambem nao, por causa do limite de 4 GB por arquivo |
+| Sem administrador | Nada de instalar Python, driver ou servico. Tudo dentro da pasta do usuario |
+| Windows | Os `.sh` nao rodam. O instalador e um `.py`, que serve aos dois sistemas |
 
-O `scripts/distribuir_dados.sh` já aplica exatamente esses `--exclude`.
-
-### 5.2 SSH sem senha
-
-Ajuste `experiments/maquinas.txt` para os nomes ou IPs reais do laboratório, um
-por linha. Depois instale a chave em todas — uma máquina que pede senha trava a
-cópia paralela:
+### 5.1 Formatar em exFAT
 
 ```bash
-ssh-keygen -t ed25519                       # se ainda não tiver chave
-for m in $(grep -vE '^\s*(#|$)' experiments/maquinas.txt); do ssh-copy-id "$m"; done
+lsblk -o NAME,SIZE,MODEL,TRAN,MOUNTPOINT      # confirme TRAN=usb antes!
+sudo apt install exfatprogs
+sudo umount /dev/sdb1
+sudo mkfs.exfat -n XBD-LAB /dev/sdb1
 ```
 
-### 5.3 Vistoria (10 segundos, evita horas perdidas)
+> **Confira o dispositivo.** `/dev/sda` e o disco interno de 447 GB com o
+> projeto, os 33 GB preparados e os 131 GB de GeoTIFF. Um `b` trocado por `a`
+> destroi tudo isso.
+
+Desplugue, replugue, e ajuste o dono (uma vez, so nesta maquina):
 
 ```bash
-bash scripts/checar_maquinas.sh
+sudo chown $USER:$USER /media/$USER/XBD-LAB
 ```
 
-Confere em cada máquina: SSH, GPU e driver, `python3` com o módulo `venv`, espaço
-em disco e `rsync`. Sai com erro e lista as pendências se alguma reprovar.
-
-```
-HOST         GPU                        CUDA   PYTHON   VENV   DISCO   RSYNC  NUCLEOS
---------------------------------------------------------------------------------------------
-pc01         NVIDIA GeForce RTX 3060    12.4   3.12.3   ok     412G    ok     16
-```
-
-Resolva tudo aqui. Cada um desses problemas é barato agora e caro depois: faltar
-`python3-venv` exige root, que pode não estar disponível na hora; disco cheio
-interrompe a cópia no meio; e um driver antigo faz o `lab_setup.sh` instalar a
-roda errada do torch, o que vira um treino em CPU silencioso — dezenas de vezes
-mais lento, e invisível até a primeira época fechar.
-
-### 5.4 Copiar
+### 5.2 Montar o HD
 
 ```bash
-bash scripts/distribuir_dados.sh
+bash scripts/preparar_hd.sh /media/$USER/XBD-LAB
 ```
 
-**Sobre o tempo:** o gargalo é a placa de rede da *origem*, não das destinatárias.
-32 GB × 20 = 640 GB; num link de 1 Gb/s são ~95 min, e aumentar `PARALELO` não
-muda esse total — só reparte a mesma banda.
+Leva ~10 min. Ao final o HD fica assim:
 
-Se 95 min não couber no dia, distribua em árvore:
-
-```bash
-# onda 1: ~15 min
-bash scripts/distribuir_dados.sh pc01 pc02 pc03 pc04
-
-# onda 2: cada origem serve 4 destinos com a própria banda, ~20 min no total
-ORIGEM=pc01 bash scripts/distribuir_dados.sh pc05 pc06 pc07 pc08 &
-ORIGEM=pc02 bash scripts/distribuir_dados.sh pc09 pc10 pc11 pc12 &
-ORIGEM=pc03 bash scripts/distribuir_dados.sh pc13 pc14 pc15 pc16 &
-ORIGEM=pc04 bash scripts/distribuir_dados.sh pc17 pc18 pc19 pc20 &
-wait
+```
+XBD-LAB/
+├── INSTALAR.bat         <- clique duplo no Windows
+├── INSTALAR.txt         instrucoes impressas
+├── lab.env              LAB_URL + LAB_TOKEN
+├── xbd-data.tar         33 GB
+└── Disaster-Damage/     codigo
 ```
 
-`rsync` é retomável: uma cópia interrompida continua de onde parou.
+**Edite `lab.env` e cole o `LAB_TOKEN`** antes de sair. E o que evita digitar o
+token dez vezes.
+
+Os dados viram um `.tar` unico em vez de 22.068 arquivos soltos porque copiar
+milhares de arquivos pequenos de um HD USB e dominado por latencia de acesso:
+cai para 20-40 MB/s, contra ~110 MB/s de leitura sequencial. Sao ~25 min contra
+~6 min **por maquina**.
 
 ---
 
-## 6. Em cada máquina
+## 6. Em cada maquina (10x)
 
-### 6.1 O que precisa estar instalado
+1. Plugue o HD.
+2. Abra no Explorador de Arquivos.
+3. Clique duas vezes em **`INSTALAR.bat`**.
 
-O `lab_setup.sh` instala tudo dentro de um venv, sem root. Só dois pré-requisitos
-ficam fora do alcance dele:
+Pelo terminal, se preferir (com `E:` sendo a letra do HD):
 
-- **driver NVIDIA** funcionando (`nvidia-smi` responde)
-- **`python3` ≥ 3.10 com o módulo `venv`**
-
-Em Ubuntu/Debian, `python3 -m venv` costuma exigir o pacote `python3-venv`, que
-precisa de root. Teste antes:
-
-```bash
-python3 -m venv /tmp/teste-venv && echo OK || echo "falta python3-venv"
+```
+python E:\Disaster-Damage\scripts\instalar.py
 ```
 
-Se faltar e você não tiver root, peça ao administrador
-(`sudo apt install python3-venv`), ou use `virtualenv` no espaço do usuário:
+O script faz tudo sem administrador: copia o codigo, extrai os 33 GB, monta o
+venv, instala a versao do torch compativel com o driver **daquela** maquina,
+testa a conexao com o painel e deixa o agente rodando. ~15 min, quase tudo copia
+de disco. E retomavel — se travar, rode de novo.
 
-```bash
-pip install --user virtualenv && python3 -m virtualenv .venv
+Ao final imprime o que voce precisa anotar:
+
+```
+hostname : LAB-PC-03
+IP       : 10.20.30.47        <-- ANOTE
+usuario  : aluno
+GPU      : NVIDIA GeForce RTX 3060
 ```
 
-### 6.2 Instalar
+**E assim que voce descobre os IPs.** Voce ja esta na maquina; nao depende de
+varredura de rede, que numa rede institucional costuma falhar por isolamento
+entre clientes ou VLAN por sala.
 
-```bash
-cd ~/Disaster-Damage
-bash scripts/lab_setup.sh
+### Se der errado
+
+| Sintoma | Causa e saida |
+|---|---|
+| `python nao e reconhecido` | Python fora do PATH. Tente `py` no lugar de `python`; se nao houver, instale pela Microsoft Store (nao exige administrador) |
+| `torch NAO enxerga a GPU` | Driver incompativel com a roda instalada. O script imprime a versao do driver que detectou; confira com `nvidia-smi` |
+| `sem contato com o painel` | Rede bloqueando. Aceite seguir: o treino roda e as metricas ficam no spool local, subindo quando a conexao voltar |
+| `extraiu N de 11034 cenas` | Tar incompleto ou HD com defeito. Refaca o HD |
+
+### Religar uma maquina depois
+
+```
+cd %USERPROFILE%\Disaster-Damage
+.venv\Scripts\python.exe scripts\rodar_agente.py
 ```
 
-O script detecta a versão de CUDA pelo driver e instala a roda correspondente do
-torch (`cu124`, `cu121` ou `cu118`), depois `requirements-treino.txt` (numpy,
-pandas, pyarrow, Pillow, opencv-headless, PyYAML, psutil, timm).
-
-Essa detecção não é excesso de zelo: instalar `cu124` numa máquina cujo driver só
-suporta 12.1 resulta num `torch.cuda.is_available() == False` silencioso — o
-treino cai para CPU, roda dezenas de vezes mais devagar, e ninguém percebe até o
-fim do dia.
-
-Ao final o script confere GPU, imports e a presença dos dados. Leia a saída: se
-disser `! sem GPU visivel para o torch` ou `! faltam imagens`, resolva antes de
-seguir.
-
-### 6.3 Disparar
-
-```bash
-export LAB_URL=https://experimento.tremdigital.com.br
-export LAB_TOKEN=xxxx
-bash scripts/lab_worker.sh
-```
-
-Para deixar rodando depois de fechar a sessão SSH (o caso normal):
-
-```bash
-cd ~/Disaster-Damage
-export LAB_URL=https://experimento.tremdigital.com.br LAB_TOKEN=xxxx
-setsid nohup bash scripts/lab_worker.sh > agente.out 2>&1 &
-tail -f agente.out
-```
-
-### 6.4 Disparar nas 20 de uma vez
-
-Depois de conferir que funciona em uma:
-
-```bash
-for m in $(grep -vE '^\s*(#|$)' experiments/maquinas.txt); do
-  ssh "$m" "cd ~/Disaster-Damage && \
-    LAB_URL=https://experimento.tremdigital.com.br LAB_TOKEN=xxxx \
-    setsid nohup bash scripts/lab_worker.sh > agente.out 2>&1 &" &
-done; wait
-```
-
-Em seguida abra o painel: em um ou dois minutos as 20 máquinas aparecem na tabela
-**Máquinas** e os slots começam a ficar azuis.
+Retoma o experimento do checkpoint local, da epoca exata em que parou.
 
 ---
 
@@ -429,7 +363,7 @@ Em seguida abra o painel: em um ou dois minutos as 20 máquinas aparecem na tabe
 
 | O quê | Onde |
 |---|---|
-| Estado das 20 máquinas, progresso por época, placar | `https://experimento.tremdigital.com.br/` |
+| Estado das 10 máquinas, progresso por época, placar | `https://experimento.tremdigital.com.br/` |
 | Curvas de treino e validação, aba HPARAMS | `https://experimento.tremdigital.com.br/tb/` |
 | Tabela final para análise | `https://experimento.tremdigital.com.br/api/resultados.csv` |
 
@@ -459,7 +393,7 @@ curl -X POST https://experimento.tremdigital.com.br/api/experimentos/NOME/libera
 
 **Um slot ficou vermelho (`erro`).** Fica parado de propósito — reenfileirar só
 repetiria a mesma falha. O painel mostra a última linha do erro; o log completo
-está na máquina, em `results/logs/NOME.log`.
+está na máquina, em `%USERPROFILE%\Disaster-Damage\results\logs\NOME.log`.
 
 **`/tb/` responde 502.** O TensorBoard morreu. O corpo do 502 traz o fim de
 `/data/tensorboard.log`. Um redeploy no Coolify o levanta de novo.
@@ -468,10 +402,10 @@ está na máquina, em `results/logs/NOME.log`.
 com a rede fora do ar. Os eventos estão no spool da máquina
 (`results/spool/*.jsonl`) e sobem sozinhos quando a conexão voltar.
 
-**Fim do dia, quero parar sem perder o progresso.** `Ctrl-C` no agente (ou
-`pkill -INT -f xbd.agent`). O sinal chega no treino, que salva o checkpoint,
-marca `interrompido` e devolve o slot. No dia seguinte, `bash scripts/lab_worker.sh`
-retoma exatamente da época em que parou.
+**Fim do dia, quero parar sem perder o progresso.** `Ctrl-C` na janela do agente.
+O sinal chega no treino (via `CTRL_BREAK_EVENT` no Windows), que salva o
+checkpoint, marca `interrompido` e devolve o slot. No dia seguinte,
+`.venv\Scripts\python.exe scripts\rodar_agente.py` retoma da época exata.
 
 **Mudei a matriz e quero recarregar sem redeploy:** o `POST /api/matriz` da seção
 4. Experimentos já rodando não são afetados; só a config dos que ainda estão

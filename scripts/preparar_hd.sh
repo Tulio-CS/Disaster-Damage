@@ -36,9 +36,18 @@ echo "=== HD: $HD  ($LIVRE_GB GB livres, precisa de ~$PRECISA_GB GB)"
 SIS=$(df -T "$HD" | tail -1 | awk '{print $2}')
 echo "=== sistema de arquivos: $SIS"
 case "$SIS" in
-    ext4|ext3|xfs|btrfs) ;;
-    exfat|fuseblk)  echo "    (exFAT funciona; ext4 seria mais rapido para o .tar)" ;;
-    vfat|msdos)     echo "! FAT32 nao aceita arquivo maior que 4 GB — reformate para exFAT ou ext4"; exit 1 ;;
+    exfat|fuseblk)  echo "    ok — legivel no Windows e sem limite de tamanho de arquivo" ;;
+    ntfs|ntfs3)     echo "    ok — legivel no Windows" ;;
+    ext4|ext3|xfs|btrfs)
+        echo "! $SIS NAO e legivel pelo Windows sem driver de terceiros."
+        echo "  As maquinas do laboratorio rodam Windows; reformate para exFAT:"
+        echo "      sudo umount $HD"
+        echo "      sudo mkfs.exfat -n XBD-LAB \$(findmnt -no SOURCE $HD)"
+        exit 1 ;;
+    vfat|msdos)
+        echo "! FAT32 nao aceita arquivo maior que 4 GB, e o xbd-data.tar tem 33 GB."
+        echo "  Reformate para exFAT (veja o runbook)."
+        exit 1 ;;
     *)              echo "    (nao reconhecido; seguindo)" ;;
 esac
 
@@ -94,21 +103,41 @@ fi
 
 # --------------------------------------------------------------- instrucao
 
-cat > "$HD/INSTALAR.txt" <<EOF
-Em cada maquina do laboratorio:
+# Atalho do Windows: clique duplo em vez de digitar caminho no terminal. O
+# %~dp0 resolve para a pasta do .bat, entao funciona em qualquer letra de
+# unidade — o HD pode montar como E:, F: ou G: dependendo da maquina.
+printf '%s\r\n' \
+  '@echo off' \
+  'REM Instalador do laboratorio xBD. Clique duplo neste arquivo.' \
+  'cd /d "%~dp0"' \
+  'where py >nul 2>&1 && (py "%~dp0Disaster-Damage\scripts\instalar.py") || (python "%~dp0Disaster-Damage\scripts\instalar.py")' \
+  'if errorlevel 1 pause' \
+  > "$HD/INSTALAR.bat"
+
+cat > "$HD/INSTALAR.txt" <<'EOF'
+Em cada maquina do laboratorio (Windows):
 
   1. Plugue este HD.
-  2. Descubra onde ele montou:   lsblk -o NAME,MOUNTPOINT | grep -v '^loop'
-  3. Rode (ajustando o caminho do HD):
+  2. Abra o HD no Explorador de Arquivos.
+  3. Clique duas vezes em INSTALAR.bat
 
-       bash /caminho/do/HD/Disaster-Damage/scripts/instalar_do_hd.sh
+     Se preferir o terminal (PowerShell ou cmd), com E: sendo a letra do HD:
+         python E:\Disaster-Damage\scripts\instalar.py
 
-O script copia o codigo e os dados para o disco local, instala o torch
-compativel com o driver da maquina, testa a conexao com o painel e deixa o
-agente rodando. Ao final ele imprime o HOSTNAME e o IP da maquina — anote,
-e com isso da para acompanhar por ssh depois.
+Em Linux, o mesmo script:
+     python3 /caminho/do/HD/Disaster-Damage/scripts/instalar.py
+
+O script copia o codigo e os dados para a pasta do usuario, monta o ambiente
+com a versao do torch compativel com o driver daquela maquina, testa a conexao
+com o painel e deixa o agente rodando. NAO precisa de administrador.
+
+Ao final ele imprime o HOSTNAME e o IP da maquina — ANOTE os dois.
 
 Leva ~15 min por maquina, quase tudo copia de disco.
+
+Se der erro de "python nao reconhecido", a maquina nao tem Python no PATH.
+Tente `py` no lugar de `python`, ou instale pelo Microsoft Store (nao exige
+administrador).
 EOF
 
 echo
@@ -119,6 +148,6 @@ echo
 echo "FALTA: editar $ENV e colar o LAB_TOKEN."
 echo
 echo "Em cada maquina do laboratorio, rode:"
-echo "    bash $HD/Disaster-Damage/scripts/instalar_do_hd.sh"
-echo "(o caminho do HD muda de maquina para maquina; veja com lsblk)"
+echo "    (Windows) clique duplo em INSTALAR.bat, na raiz do HD"
+echo "ou:  python E:\\Disaster-Damage\\scripts\\instalar.py"
 echo "======================================================================"

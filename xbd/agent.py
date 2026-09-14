@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import os
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -31,6 +32,17 @@ from .config import from_preset
 from .reporter import Reporter, claim, worker_id
 
 RAIZ = Path(__file__).resolve().parent.parent
+WINDOWS = os.name == "nt"
+
+# Encerrar o treino sem perder a epoca em curso depende do sinal certo, e ele
+# difere por sistema. No Unix, SIGINT vira KeyboardInterrupt no filho. No
+# Windows nao existe "enviar SIGINT para um processo": a unica forma de
+# interromper um filho especifico e CTRL_BREAK_EVENT, e ele so alcanca o filho
+# se este tiver sido criado com CREATE_NEW_PROCESS_GROUP. Sem o par
+# (flag na criacao, evento no envio) so restaria matar o processo, o que
+# descartaria as horas de treino desde o ultimo checkpoint.
+FLAGS_CRIACAO = subprocess.CREATE_NEW_PROCESS_GROUP if WINDOWS else 0
+SINAL_PARADA = signal.CTRL_BREAK_EVENT if WINDOWS else signal.SIGINT
 
 
 def _descrever_gpu() -> tuple[str | None, float | None]:
@@ -63,7 +75,9 @@ class Agente:
         self.parando = False
         self.proc: subprocess.Popen | None = None
 
-        for sig in (signal.SIGINT, signal.SIGTERM):
+        # SIGTERM existe no Windows mas nunca e entregue; registrar so no Unix.
+        sinais = [signal.SIGINT] if WINDOWS else [signal.SIGINT, signal.SIGTERM]
+        for sig in sinais:
             signal.signal(sig, self._sinal)
 
     def _sinal(self, signum, _frame) -> None:
@@ -73,14 +87,18 @@ class Agente:
         print(f"\n[agente] sinal {signum}: encerrando apos o run atual", flush=True)
         self.parando = True
         if self.proc and self.proc.poll() is None:
-            self.proc.send_signal(signal.SIGINT)
+            try:
+                self.proc.send_signal(SINAL_PARADA)
+            except (OSError, ValueError) as exc:
+                print(f"[agente] nao consegui interromper o treino ({exc}); encerrando", flush=True)
+                self.proc.terminate()
 
     # ------------------------------------------------------------------ execucao
 
     def _pulsar(self, run_id: str, parar: threading.Event) -> None:
         while not parar.wait(30):
             self.reporter.enviar("heartbeat", run_id=run_id, worker_id=self.wid,
-                                 hostname=os.uname().nodename)
+                                 hostname=socket.gethostname())
 
     def rodar_experimento(self, spec: dict) -> str:
         cfg = montar_config(spec)
@@ -124,7 +142,8 @@ class Agente:
 
         try:
             self.proc = subprocess.Popen(cmd, cwd=RAIZ, env=env, stdout=subprocess.PIPE,
-                                         stderr=subprocess.STDOUT, text=True, bufsize=1)
+                                         stderr=subprocess.STDOUT, text=True, bufsize=1,
+                                         errors="replace", creationflags=FLAGS_CRIACAO)
             with open(log, "a", encoding="utf-8") as fh:
                 fh.write(f"\n{'=' * 60}\n{time.strftime('%Y-%m-%d %H:%M:%S')}  {run_id}\n")
                 for linha in self.proc.stdout:          # type: ignore[union-attr]
@@ -136,7 +155,12 @@ class Agente:
             parar_pulso.set()
             self.proc = None
 
-        status = {0: "concluido", 130: "interrompido"}.get(codigo, "erro")
+        # 130 = o treino tratou o KeyboardInterrupt e saiu limpo. 0xC000013A e o
+        # STATUS_CONTROL_C_EXIT do Windows: o Ctrl+Break derrubou o processo antes
+        # de o Python tratar. Nos dois casos o checkpoint da ultima epoca esta em
+        # disco, entao o desfecho e 'interrompido' e o slot volta para a fila.
+        status = {0: "concluido", 130: "interrompido",
+                  3221225786: "interrompido"}.get(codigo, "erro")
         # O treino ja reportou o proprio desfecho; este evento e a rede de
         # seguranca para quando ele nao conseguiu (OOM killer, kill -9, driver).
         self.reporter.enviar(
@@ -155,7 +179,7 @@ class Agente:
         while not self.parando:
             try:
                 spec = claim(self.args.url, self.args.token, {
-                    "worker_id": self.wid, "hostname": os.uname().nodename,
+                    "worker_id": self.wid, "hostname": socket.gethostname(),
                     "gpu": self.gpu, "vram_gb": self.vram,
                 })
             except Exception as exc:
