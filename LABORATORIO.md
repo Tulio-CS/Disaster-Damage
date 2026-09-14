@@ -289,20 +289,37 @@ O `scripts/distribuir_dados.sh` já aplica exatamente esses `--exclude`.
 
 ### 5.2 SSH sem senha
 
-Confira em **todas** antes de disparar — uma máquina que pede senha trava a
+Ajuste `experiments/maquinas.txt` para os nomes ou IPs reais do laboratório, um
+por linha. Depois instale a chave em todas — uma máquina que pede senha trava a
 cópia paralela:
 
 ```bash
-ssh-keygen -t ed25519
+ssh-keygen -t ed25519                       # se ainda não tiver chave
 for m in $(grep -vE '^\s*(#|$)' experiments/maquinas.txt); do ssh-copy-id "$m"; done
-for m in $(grep -vE '^\s*(#|$)' experiments/maquinas.txt); do
-    ssh -o BatchMode=yes -o ConnectTimeout=5 "$m" hostname || echo "FALHOU: $m"
-done
 ```
 
-Ajuste `experiments/maquinas.txt` para os nomes reais do laboratório.
+### 5.3 Vistoria (10 segundos, evita horas perdidas)
 
-### 5.3 Copiar
+```bash
+bash scripts/checar_maquinas.sh
+```
+
+Confere em cada máquina: SSH, GPU e driver, `python3` com o módulo `venv`, espaço
+em disco e `rsync`. Sai com erro e lista as pendências se alguma reprovar.
+
+```
+HOST         GPU                        CUDA   PYTHON   VENV   DISCO   RSYNC  NUCLEOS
+--------------------------------------------------------------------------------------------
+pc01         NVIDIA GeForce RTX 3060    12.4   3.12.3   ok     412G    ok     16
+```
+
+Resolva tudo aqui. Cada um desses problemas é barato agora e caro depois: faltar
+`python3-venv` exige root, que pode não estar disponível na hora; disco cheio
+interrompe a cópia no meio; e um driver antigo faz o `lab_setup.sh` instalar a
+roda errada do torch, o que vira um treino em CPU silencioso — dezenas de vezes
+mais lento, e invisível até a primeira época fechar.
+
+### 5.4 Copiar
 
 ```bash
 bash scripts/distribuir_dados.sh
