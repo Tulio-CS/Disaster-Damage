@@ -161,6 +161,13 @@ abaixo de 32×32 px [3], o contexto pode importar menos que o número de amostra
 mas a classificação de severidade talvez precise ver o entorno (escombros na rua,
 telhado parcialmente ausente) para distinguir `minor` de `major`.
 
+> **Leia estes dois slots pelo número reavaliado, não pelo do treino.** `cfg.crop`
+> governa treino *e* validação, então os três pontos da curva (256, 512, 768)
+> foram validados sobre 6%, 25% e 56% da cena — conjuntos diferentes. Rode
+> `scripts/avaliar.py` sobre os checkpoints coletados: ele reavalia todos em cena
+> inteira (1024×1024) e torna a comparação limpa. Ver
+> [METODOLOGIA.md §11](METODOLOGIA.md).
+
 ### 3.6 Capacidade
 
 | slot | encoder | parâmetros |
