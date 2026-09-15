@@ -155,6 +155,33 @@ O xBD, na distribuição GeoTIFF, contém 11.034 pares pré/pós de cenas
 $1024\times1024$ com resolução submétrica, e 850.736 polígonos de edificação
 anotados. A Tabela~\ref{tab:dados} resume a partição.
 
+A cobertura é deliberadamente diversa em geografia e em tipo de evento
+(Figura~\ref{fig:mapa}): dezenove desastres em quatro continentes, abrangendo
+terremoto e tsunami, enchente, erupção vulcânica, incêndio florestal e vento.
+Essa diversidade é o que torna possível --- e necessária --- a validação
+agrupada por evento discutida na Seção~\ref{sec:splits}: se todos os desastres
+fossem do mesmo tipo, não haveria o que extrapolar.
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figuras/mapa_xbd.png}{%
+  \includegraphics[width=\linewidth]{figuras/mapa_xbd.png}%
+}{%
+  \fbox{\begin{minipage}[c][42mm][c]{0.96\linewidth}
+    \centering\color{cinza}\small
+    \textbf{[ mapa de cobertura do xBD ]}\\[1mm]
+    salve como \texttt{figuras/mapa\_xbd.png}
+  \end{minipage}}%
+}
+\caption{Distribuição geográfica e tipológica dos eventos do xBD. A variedade de
+mecanismos de destruição --- vento, água, fogo, abalo sísmico e material
+vulcânico --- é justamente o que a validação agrupada por evento
+(Seção~\ref{sec:splits}) submete a teste: cada \emph{fold} pede ao modelo que
+generalize para um mecanismo que ele viu pouco ou não viu. Fonte: documentação
+do desafio xView2~\cite{xview2}.}
+\label{fig:mapa}
+\end{figure}
+
 \begin{table}[htbp]
 \centering
 \caption{Composição do xBD em número de cenas (pares pré/pós).}
@@ -177,7 +204,8 @@ anotados. A Tabela~\ref{tab:dados} resume a partição.
 \label{sec:eda}
 
 Cinco medições da análise exploratória determinaram decisões concretas do
-\emph{pipeline}:
+\emph{pipeline}, e são retomadas ao longo do texto pela referência a esta
+seção (\ref{sec:eda}):
 
 \begin{description}
   \item[Desbalanceamento de $\sim$10:1] a favor de \texttt{no-damage}, com
@@ -333,7 +361,7 @@ saída:
   \label{eq:perda}
 \end{equation}
 
-O termo Dice~\cite{milletari2016} evita o ótimo local ``preveja fundo'' induzido
+Na Equação~\ref{eq:perda}, o termo Dice~\cite{milletari2016} evita o ótimo local ``preveja fundo'' induzido
 por 97\% de pixels de fundo, e o termo focal~\cite{lin2017focal} reduz o peso dos
 pixels já fáceis. Os pesos por classe derivam do inverso da frequência,
 amortecidos por raiz quadrada e limitados a $10\times$; o inverso puro atribuiria
@@ -342,7 +370,7 @@ $\approx 40\times$ à classe \texttt{destroyed} e desestabilizaria o treino.
 \paragraph{Derivação exata do logito binário.} O termo de localização exige a
 probabilidade de existir edificação, mas aplicar entropia cruzada binária sobre
 uma probabilidade é numericamente inválido sob precisão mista~\cite{micikevicius2018}.
-Obtemos o logito de forma exata a partir das cinco saídas:
+Obtemos o logito de forma exata a partir das cinco saídas (Equação~\ref{eq:logit}):
 \begin{equation}
   \operatorname{logit}(\text{edif})
   = \log\frac{p}{1-p}
@@ -480,8 +508,9 @@ permanecem localmente em cada estação até a coleta final.}
 \label{fig:infra}
 \end{figure}
 
-Três propriedades do desenho merecem registro, por serem o que permitiu concluir
-os 24 experimentos em um único dia:
+A Figura~\ref{fig:laboratorio} mostra as estações em operação. Três
+propriedades do desenho merecem registro, por serem o que permitiu concluir os
+24 experimentos em um único dia:
 
 \begin{description}
   \item[Fila puxada, não atribuição fixa.] Com atribuição fixa, o experimento de
@@ -605,11 +634,30 @@ invariante ao protocolo; a classificação de severidade cai pela metade.}
 \label{fig:gap}
 \end{figure}
 
+A Figura~\ref{fig:folds} desagrega o resultado por \emph{fold}. A barra de
+localização acompanha a linha do protocolo oficial em todos os cinco; a de dano
+oscila entre $0{,}109$ e $0{,}494$, sem que nenhuma se aproxime do valor
+oficial.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.86\linewidth]{figuras/folds.pdf}
+\caption{Desempenho por \emph{fold} da validação agrupada por evento. As linhas
+tracejadas marcam os valores do \emph{split} oficial. A localização (azul)
+permanece próxima da referência em todos os \emph{folds}; o termo de dano
+(vermelho) colapsa e varia fortemente conforme o evento excluído.}
+\label{fig:folds}
+\end{figure}
+
 A interpretação é que a aparência do dano é específica do tipo de evento:
 enchente, terremoto e furacão destroem de maneiras visualmente distintas, e um
-modelo treinado em quatro tipos não extrapola para o quinto. Um sistema
-operacional de resposta a desastres calibrado pelo número oficial estaria
-contando com uma capacidade que ele não possui.
+modelo treinado em quatro tipos não extrapola para o quinto. A
+Figura~\ref{fig:mapa} torna concreto o porquê: quando o \emph{fold} excluído
+concentra incêndios florestais, por exemplo, o modelo precisa reconhecer
+assinaturas de destruição --- estruturas reduzidas a fundações, ausência de
+telhado, alteração cromática do terreno --- que os demais eventos não contêm.
+Um sistema operacional de resposta a desastres calibrado pelo número oficial
+estaria contando com uma capacidade que ele não possui.
 
 \subsection{A mesma dissociação, por outro caminho}
 
@@ -634,6 +682,9 @@ de vazamento contextual que merece investigação.
 
 \subsection{Ablações}
 \label{sec:ablacoes}
+
+A Tabela~\ref{tab:ablacoes} reúne as quinze ablações, ordenadas por escore e
+julgadas contra o piso de ruído da Seção~\ref{sec:desenho}.
 
 \begin{table}[htbp]
 \centering
@@ -694,6 +745,40 @@ monotônica e o ótimo está no ponto intermediário: $0{,}6248$ (256), $0{,}658
 número de amostras por passo no mesmo orçamento. A localização é insensível
 (0{,}839--0{,}847): toda a variação reside no termo de dano.
 
+\subsection{Dinâmica de treino}
+
+A Figura~\ref{fig:curvas} acompanha quatro configurações ao longo das 20 épocas.
+Três observações:
+
+\begin{itemize}
+  \item \textbf{A ablação sem pré-treino converge mais devagar e a um patamar
+  inferior.} A curva de perda de treino permanece acima das demais durante toda
+  a execução: não é questão de otimização mal ajustada, e sim de ponto de
+  partida.
+
+  \item \textbf{A ablação sem ramo siamês exibe perda de treino competitiva mas
+  escore de validação estagnado} em torno de $0{,}52$. O modelo aprende a
+  reduzir sua perda --- a localização é fácil --- sem que isso se converta em
+  discriminação de severidade, exatamente o comportamento esperado de quem não
+  observa o pós-desastre.
+
+  \item \textbf{A ablação vencedora domina desde a época 5.} Liberar a taxa de
+  aprendizado do \emph{encoder} não apenas eleva o patamar final: acelera toda a
+  trajetória, o que reforça a leitura de que $0{,}1\times$ estava restringindo a
+  adaptação ao domínio, e não regularizando.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{figuras/curvas.pdf}
+\caption{Dinâmica de treino de quatro configurações. À esquerda e ao centro, as
+perdas; à direita, o escore de validação por época. Note que perda de treino
+baixa não implica escore alto: a variante sem ramo siamês minimiza a perda
+razoavelmente bem e ainda assim estagna, porque o termo de localização --- fácil
+--- domina a perda enquanto o de severidade domina a métrica.}
+\label{fig:curvas}
+\end{figure}
+
 \subsection{Onde o modelo erra}
 \label{sec:erros}
 
@@ -720,12 +805,24 @@ vale mais do que melhorar as outras três em conjunto.}
 
 O achado operacionalmente relevante é que o limitante é a \emph{precisão}
 ($0{,}372$) e não o \emph{recall} ($0{,}430$) --- padrão que se repete em 15 dos
-18 experimentos com \emph{split} oficial. Isso \textbf{inverte a correção
-intuitiva}: aumentar peso de classe e reamostragem elevaria o \emph{recall} às
-custas da precisão, que já é o lado fraco. Note-se que, sem registrar precisão e
+18 experimentos com \emph{split} oficial, como mostra o painel direito da
+Figura~\ref{fig:precrecall}. Isso \textbf{inverte a correção intuitiva}:
+aumentar peso de classe e reamostragem elevaria o \emph{recall} às custas da
+precisão, que já é o lado fraco. Note-se que, sem registrar precisão e
 \emph{recall} separadamente, o diagnóstico seria impossível: $F_1$ e IoU são
 funções um do outro ($F_1 = 2\,\mathrm{IoU}/(1+\mathrm{IoU})$) e, juntos, não
 carregam essa informação.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{figuras/prec_recall.pdf}
+\caption{Esquerda: desempenho por classe da referência; a linha pontilhada marca
+o menor $F_1$, que determina a média harmônica. Direita: precisão contra
+\emph{recall} da classe \texttt{minor-damage} nos 18 experimentos com
+\emph{split} oficial. Praticamente todos caem acima da diagonal, isto é, com
+\emph{recall} superior à precisão.}
+\label{fig:precrecall}
+\end{figure}
 
 \begin{table}[htbp]
 \centering
@@ -746,13 +843,162 @@ verdadeira). Avaliação em cena inteira sobre \texttt{hold}.}
 \end{tabular}
 \end{table}
 
-A Tabela~\ref{tab:confusao} mostra que, dos pixels verdadeiramente
-\texttt{minor-damage}, 23{,}0\% são classificados como \texttt{no-damage} e
-16{,}4\% como \texttt{major-damage}. A quase simetria entre subestimar e
-superestimar sugere que a fronteira entre níveis é genuinamente ambígua, e não um
-viés sistemático do modelo. Registre-se ainda que 13--17\% de toda edificação
-danificada é perdida como fundo, em todas as classes de severidade: um erro de
-localização que a métrica de dano contabiliza junto.
+A Tabela~\ref{tab:confusao} e a Figura~\ref{fig:confusao} mostram que, dos
+pixels verdadeiramente \texttt{minor-damage}, 23{,}0\% são classificados como
+\texttt{no-damage} e 16{,}4\% como \texttt{major-damage}. A quase simetria entre
+subestimar e superestimar sugere que a fronteira entre níveis é genuinamente
+ambígua, e não um viés sistemático do modelo. Registre-se ainda que 13--17\% de
+toda edificação danificada é perdida como fundo, em todas as classes de
+severidade: um erro de localização que a métrica de dano contabiliza junto.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\linewidth]{figuras/confusao.pdf}
+\caption{Matriz de confusão da configuração de referência, normalizada por linha.
+A diagonal decresce de $99{,}0$ (fundo) a $43{,}0$ (\texttt{minor-damage}); a
+massa fora da diagonal concentra-se nas células adjacentes, coerente com a
+natureza ordinal dos rótulos.}
+\label{fig:confusao}
+\end{figure}
+
+\subsection{Inspeção qualitativa}
+
+A Figura~\ref{fig:exemplos} apresenta predições do melhor modelo em quatro cenas
+de \texttt{hold}, escolhidas por composição de severidade no recorte avaliado.
+As quatro linhas tornam visíveis os padrões que as tabelas quantificam:
+
+\begin{itemize}
+  \item \textbf{A delimitação das edificações é consistentemente precisa}, mesmo
+  onde a classificação erra. Contornos, separação entre construções vizinhas e
+  cobertura de estruturas pequenas correspondem bem à anotação. É o correlato
+  visual de o $F_1$ de localização ser competitivo com o ranking oficial
+  (Seção~\ref{sec:leaderboard}).
+
+  \item \textbf{Os dois sentidos do erro de \texttt{minor-damage} aparecem lado a
+  lado.} Na segunda linha, uma quadra majoritariamente intacta recebe marcações
+  de dano leve --- falha de precisão. Na terceira, um galpão anotado como dano
+  leve é classificado como intacto --- falha de \emph{recall}. As duas coexistem
+  no mesmo modelo, o que é exatamente o que a quase simetria da
+  Tabela~\ref{tab:confusao} prevê.
+
+  \item \textbf{A severidade máxima é sistematicamente atenuada.} Na quarta
+  linha, edificações anotadas como destruídas são preditas como dano severo. O
+  erro é de um grau na escala ordinal, mas custa duas classes na média
+  harmônica.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figuras/exemplos.png}{%
+  \includegraphics[width=\linewidth]{figuras/exemplos.png}%
+}{%
+  \fbox{\begin{minipage}[c][60mm][c]{0.96\linewidth}
+    \centering\color{cinza}\small
+    \textbf{[ exemplos qualitativos ]}\\[1mm]
+    gere com \texttt{scripts/figuras\_pred.py}
+  \end{minipage}}%
+}
+\caption{Predições do melhor modelo em quatro cenas de \texttt{hold}. Colunas:
+imagem pré-desastre, pós-desastre, anotação de referência e predição. A fração
+indicada sob cada predição é o percentual de pixels de edificação classificados
+corretamente naquele recorte.}
+\label{fig:exemplos}
+\end{figure}
+
+\section{Comparação com o ranking oficial}
+\label{sec:leaderboard}
+
+O desafio xView2 publica uma tabela de classificação com o desempenho das
+submissões avaliadas em sua partição reservada (Figura~\ref{fig:lbprint}).
+Confrontar nosso melhor modelo com ela situa o trabalho, desde que as ressalvas
+abaixo sejam observadas.
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figuras/leaderboard.png}{%
+  \includegraphics[width=\linewidth]{figuras/leaderboard.png}%
+}{%
+  \fbox{\begin{minipage}[c][38mm][c]{0.96\linewidth}
+    \centering\color{cinza}\small
+    \textbf{[ captura da tabela de classificação do xView2 ]}\\[1mm]
+    salve como \texttt{figuras/leaderboard.png}
+  \end{minipage}}%
+}
+\caption{Nove primeiras colocações do ranking oficial do xView2, com o escore
+global e a decomposição por classe. Fonte: plataforma do
+desafio~\cite{xview2}.}
+\label{fig:lbprint}
+\end{figure}
+
+\subsection{Ressalvas de comparabilidade}
+
+\begin{enumerate}
+  \item \textbf{Partições distintas.} O ranking avalia a partição reservada do
+  desafio; nós avaliamos \texttt{hold}.
+
+  \item \textbf{Viés de seleção a nosso favor.} O \emph{checkpoint} reportado é o
+  de melhor escore \emph{nessa mesma partição} \texttt{hold}, usada também para
+  seleção de modelo. Nosso número é, portanto, otimista --- e ainda assim
+  inferior.
+
+  \item \textbf{Orçamento incomparável.} Reportamos um único modelo treinado por
+  20 épocas, sem \emph{ensemble}, sem aumento em tempo de teste e sem busca de
+  hiperparâmetros. As submissões do topo empregam rotineiramente os três.
+\end{enumerate}
+
+A conclusão correta é que a diferença medida é um \emph{piso}: o modelo real
+ficaria abaixo do que a Tabela~\ref{tab:leaderboard} indica, e não acima.
+
+\subsection{Resultado}
+
+\begin{table}[htbp]
+\centering
+\caption{Melhor modelo deste trabalho contra a faixa das nove primeiras
+colocações oficiais. Valores em $F_1$.}
+\label{tab:leaderboard}
+\begin{tabular}{lrrrl}
+\toprule
+\textbf{Métrica} & \textbf{1\textordmasculine} & \textbf{9\textordmasculine} &
+\textbf{Este trabalho} & \textbf{Situação} \\
+\midrule
+$F_1$ global            & 0{,}81193 & 0{,}73289 & 0{,}69942 & abaixo do 9\textordmasculine \\
+$F_1$ localização       & 0{,}86350 & 0{,}85250 & \textbf{0{,}85562} & \textbf{dentro da faixa (6\textordmasculine)} \\
+\texttt{no-damage}      & 0{,}92344 & 0{,}88864 & 0{,}80816 & abaixo do 9\textordmasculine \\
+\texttt{minor-damage}   & 0{,}64445 & 0{,}47583 & 0{,}45407 & abaixo do 9\textordmasculine \\
+\texttt{major-damage}   & 0{,}78591 & 0{,}71313 & 0{,}64962 & abaixo do 9\textordmasculine \\
+\texttt{destroyed}      & 0{,}86403 & 0{,}80700 & 0{,}74332 & abaixo do 9\textordmasculine \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{figuras/leaderboard.pdf}
+\caption{Esquerda: comparação por métrica contra o primeiro e o nono colocados.
+Direita: o mesmo dado projetado no plano localização $\times$ dano; os números
+identificam a colocação oficial. A distância até o grupo do topo é quase
+inteiramente vertical.}
+\label{fig:leaderboard}
+\end{figure}
+
+O resultado é acentuadamente assimétrico, e reproduz --- por um terceiro caminho
+independente --- o achado central deste trabalho. Em \textbf{localização}, o
+valor de $0{,}85562$ situa-se dentro da faixa das nove primeiras colocações
+($0{,}83646$ a $0{,}86695$), o que corresponderia à sexta posição. Em todas as
+quatro classes de severidade, o modelo fica abaixo da nona colocação.
+
+O painel direito da Figura~\ref{fig:leaderboard} explicita a geometria: no eixo
+horizontal, nosso modelo está no meio do grupo de topo; no vertical, separado
+por uma lacuna de aproximadamente $0{,}05$ a $0{,}16$ na média harmônica das
+severidades. \textbf{A diferença para o estado da arte não está em encontrar
+edificações --- está em graduar o dano.}
+
+Isso posiciona o esforço subsequente com precisão. Ganhos em segmentação
+(arquitetura de \emph{decoder}, resolução, pós-processamento de contornos)
+atacariam a dimensão em que já somos competitivos. O retorno está na dimensão
+ortogonal, e a Seção~\ref{sec:erros} indica onde especificamente: a precisão de
+\texttt{minor-damage}, que é também a classe de maior lacuna absoluta contra o
+ranking ($0{,}454$ contra $0{,}644$ do primeiro colocado).
 
 \section{Limitações}
 
