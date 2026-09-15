@@ -31,13 +31,12 @@ elas estão em texto literal, não geradas.
 
 ## Imagens que faltam
 
-Três arquivos não estão no repositório e o documento os espera. Ele **compila
+Dois arquivos não estão no repositório e o documento os espera. Ele **compila
 sem eles** (aparece um quadro de marcação no lugar), mas ficam melhores com:
 
 | arquivo | o quê |
 |---|---|
 | `figuras/mapa_xbd.png` | mapa de cobertura geográfica do xBD |
-| `figuras/leaderboard.png` | captura da tabela de classificação oficial |
 | `figuras/laboratorio.jpg` | fotografia das 10 estações em operação |
 
 ## Figuras geradas

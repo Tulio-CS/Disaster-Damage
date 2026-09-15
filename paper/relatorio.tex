@@ -909,26 +909,50 @@ corretamente naquele recorte.}
 \label{sec:leaderboard}
 
 O desafio xView2 publica uma tabela de classificação com o desempenho das
-submissões avaliadas em sua partição reservada (Figura~\ref{fig:lbprint}).
-Confrontar nosso melhor modelo com ela situa o trabalho, desde que as ressalvas
-abaixo sejam observadas.
+submissões avaliadas em sua partição reservada. A Tabela~\ref{tab:leaderboard}
+reproduz as nove primeiras colocações e acrescenta os dois modelos deste
+trabalho.
 
-\begin{figure}[htbp]
+\begin{table}[htbp]
 \centering
-\IfFileExists{figuras/leaderboard.png}{%
-  \includegraphics[width=\linewidth]{figuras/leaderboard.png}%
-}{%
-  \fbox{\begin{minipage}[c][38mm][c]{0.96\linewidth}
-    \centering\color{cinza}\small
-    \textbf{[ captura da tabela de classificação do xView2 ]}\\[1mm]
-    salve como \texttt{figuras/leaderboard.png}
-  \end{minipage}}%
-}
-\caption{Nove primeiras colocações do ranking oficial do xView2, com o escore
-global e a decomposição por classe. Fonte: plataforma do
-desafio~\cite{xview2}.}
-\label{fig:lbprint}
-\end{figure}
+\caption{Ranking oficial do xView2 (nove primeiras colocações) com os modelos
+deste trabalho acrescentados ao final. A última coluna, $F_1$ dano, é a média
+harmônica das quatro classes de severidade --- o termo que responde por 70\% do
+escore global. Valores do ranking conforme publicados pela plataforma do
+desafio~\cite{xview2}; a média harmônica foi recalculada a partir deles.}
+\label{tab:leaderboard}
+\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+& \textbf{$F_1$} & \textbf{$F_1$} & & \textbf{Dano} & \textbf{Dano} &
+& \textbf{$F_1$} \\
+\textbf{Posição} & \textbf{global} & \textbf{local.} & \textbf{Intacta} &
+\textbf{leve} & \textbf{severo} & \textbf{Destr.} & \textbf{dano} \\
+\midrule
+1 & 0{,}81193 & 0{,}86350 & 0{,}92344 & 0{,}64445 & 0{,}78591 & 0{,}86403 & 0{,}7898 \\
+2 & 0{,}80761 & 0{,}86318 & 0{,}92556 & 0{,}63891 & 0{,}77302 & 0{,}85903 & 0{,}7838 \\
+3 & 0{,}80543 & \textbf{0{,}86695} & 0{,}92071 & 0{,}63693 & 0{,}76857 & 0{,}84954 & 0{,}7791 \\
+4 & 0{,}78709 & 0{,}86285 & \textbf{0{,}92642} & 0{,}59691 & 0{,}74422 & 0{,}83173 & 0{,}7546 \\
+5 & 0{,}77862 & 0{,}86589 & 0{,}89853 & 0{,}59048 & 0{,}73778 & 0{,}80994 & 0{,}7412 \\
+6 & 0{,}77525 & 0{,}84614 & 0{,}92152 & 0{,}57997 & 0{,}74545 & 0{,}82018 & 0{,}7449 \\
+7 & 0{,}75287 & 0{,}85134 & 0{,}88578 & 0{,}55875 & 0{,}70744 & 0{,}77141 & 0{,}7107 \\
+8 & 0{,}74146 & 0{,}83646 & 0{,}90645 & 0{,}49347 & 0{,}72245 & 0{,}83723 & 0{,}7007 \\
+9 & 0{,}73289 & 0{,}85250 & 0{,}88864 & 0{,}47583 & 0{,}71313 & 0{,}80700 & 0{,}6816 \\
+\midrule
+\emph{melhor deste trabalho} & 0{,}69942 & \textbf{0{,}85562} & 0{,}80816 &
+  0{,}45407 & 0{,}64962 & 0{,}74332 & 0{,}6325 \\
+\emph{referência deste trabalho} & 0{,}65834 & 0{,}84551 & 0{,}77909 &
+  0{,}39910 & 0{,}56743 & 0{,}73135 & 0{,}5781 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Validação cruzada da métrica.} Antes de comparar, verificamos que
+nossa implementação da Equação~\ref{eq:metrica} reproduz a oficial: recalculando
+$0{,}3\,F_1^{\text{loc}} + 0{,}7\,\overline{F_1}_{\text{harm}}$ a partir das
+colunas publicadas, obtemos os escores globais das três primeiras colocações com
+diferença máxima de $10^{-5}$. As duas implementações são, portanto, a mesma
+função --- e as diferenças observadas a seguir são de modelo, não de medição.
 
 \subsection{Ressalvas de comparabilidade}
 
@@ -951,26 +975,6 @@ ficaria abaixo do que a Tabela~\ref{tab:leaderboard} indica, e não acima.
 
 \subsection{Resultado}
 
-\begin{table}[htbp]
-\centering
-\caption{Melhor modelo deste trabalho contra a faixa das nove primeiras
-colocações oficiais. Valores em $F_1$.}
-\label{tab:leaderboard}
-\begin{tabular}{lrrrl}
-\toprule
-\textbf{Métrica} & \textbf{1\textordmasculine} & \textbf{9\textordmasculine} &
-\textbf{Este trabalho} & \textbf{Situação} \\
-\midrule
-$F_1$ global            & 0{,}81193 & 0{,}73289 & 0{,}69942 & abaixo do 9\textordmasculine \\
-$F_1$ localização       & 0{,}86350 & 0{,}85250 & \textbf{0{,}85562} & \textbf{dentro da faixa (6\textordmasculine)} \\
-\texttt{no-damage}      & 0{,}92344 & 0{,}88864 & 0{,}80816 & abaixo do 9\textordmasculine \\
-\texttt{minor-damage}   & 0{,}64445 & 0{,}47583 & 0{,}45407 & abaixo do 9\textordmasculine \\
-\texttt{major-damage}   & 0{,}78591 & 0{,}71313 & 0{,}64962 & abaixo do 9\textordmasculine \\
-\texttt{destroyed}      & 0{,}86403 & 0{,}80700 & 0{,}74332 & abaixo do 9\textordmasculine \\
-\bottomrule
-\end{tabular}
-\end{table}
-
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{figuras/leaderboard.pdf}
@@ -984,8 +988,11 @@ inteiramente vertical.}
 O resultado é acentuadamente assimétrico, e reproduz --- por um terceiro caminho
 independente --- o achado central deste trabalho. Em \textbf{localização}, o
 valor de $0{,}85562$ situa-se dentro da faixa das nove primeiras colocações
-($0{,}83646$ a $0{,}86695$), o que corresponderia à sexta posição. Em todas as
-quatro classes de severidade, o modelo fica abaixo da nona colocação.
+($0{,}83646$ a $0{,}86695$): ordenando as dez entradas por esse critério, nosso
+modelo ocupa a \textbf{sexta posição}, à frente de quatro submissões do ranking.
+Em todas as quatro classes de severidade, contudo, fica abaixo da nona
+colocação, e a média harmônica do dano ($0{,}6325$) é inferior à do último
+colocado ($0{,}6816$).
 
 O painel direito da Figura~\ref{fig:leaderboard} explicita a geometria: no eixo
 horizontal, nosso modelo está no meio do grupo de topo; no vertical, separado
