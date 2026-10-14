@@ -284,6 +284,14 @@ severidade.
 3.597 cenas. O desvio de 0,164 no termo de dano mistura variação de dificuldade
 entre eventos com variação de treino — não é ruído no mesmo sentido do §1.
 
+**Estes runs são anteriores à correção das duplicatas.** A auditoria de
+13/10/2026 achou que `socal-fire` e `woolsey-fire` são os mesmos tiles (725 pares
+com a imagem pré idêntica). Nos runs acima, 143 das 933 cenas de `hold` tinham
+cópia no treino, e os folds 0 (que contém `socal-fire`) e 3 (`woolsey-fire`)
+compartilhavam os 725 pares. Logo, o score oficial e os folds 0 e 3 são
+otimistas por um valor ainda não medido. O fold 0 é justamente o melhor dos cinco
+(0,594). Ver [METODOLOGIA.md §2.3 e §6](METODOLOGIA.md).
+
 ---
 
 ## 6. O que fazer a seguir

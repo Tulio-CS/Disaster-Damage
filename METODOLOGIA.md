@@ -83,10 +83,19 @@ anos), com off-nadir de 0° a 44°. → boa parte da diferença visual entre as 
 entre pixels é um sinal ruim; a diferença em espaço de *features* é o que
 interessa (§3).
 
-**Vazamento espacial no split oficial**: em 8 dos 10 eventos avaliados, mais de
+**Vazamento espacial no split oficial**: em 7 dos 10 eventos avaliados, mais de
 dois terços dos tiles de `hold`/`test` são adjacentes (<500 m) a um tile de
 treino. → o número oficial mede generalização para o quarteirão vizinho, não
 para um desastre novo (§6).
+
+**Duplicatas entre eventos** (auditoria de 13/10/2026, posterior aos 24 runs):
+o SHA-256 dos pixels de cada imagem (`scripts/gerar_manifesto.py`) mostrou que
+`socal-fire` e `woolsey-fire` são os **mesmos tiles** — mesma captura pré de
+23/10/2018, pós de 14/11 e 18/11 em satélites diferentes. São 725 pares de cenas;
+em 143 deles a cena está em `hold` e a cópia em `tier3`, em 156 está em `test`.
+Há ainda 84 pares dentro de `pinery-bushfire` (mesma imagem pós, pré de outra
+data), todos no treino. O dHash não achou nenhum outro par. → as cópias saem do
+treino oficial e os dois eventos viram um grupo só no split agrupado (§6).
 
 ### 2.4 Augmentação
 
@@ -179,7 +188,7 @@ desestabilizaria o treino.
 
 ## 5. Amostragem
 
-Um `WeightedRandomSampler` com dois ajustes ([data.py:227](xbd/data.py:227)):
+Um `WeightedRandomSampler` com dois ajustes ([data.py:209](xbd/data.py:209)):
 
 - cenas **com dano** recebem peso `oversample_dano` (3,0 na referência)
 - cenas **sem nenhuma edificação** recebem peso 0,25
@@ -211,6 +220,16 @@ A EDA mostrou que o split oficial tem vazamento espacial forte (§2.3). Split
 agrupado é a resposta padrão para dados com autocorrelação espacial [16], e a
 diferença entre os dois números é o que quantifica o otimismo do protocolo
 oficial. Cinco folds dão a queda média e o desvio entre eventos.
+
+**Correção das duplicatas** (`remover_duplicatas: true`, padrão desde
+13/10/2026, [splits.py](xbd/splits.py)): no modo `oficial`, as 299 cópias de
+treino de cenas de `hold`/`test` saem do treino (8.869 cenas em vez de 9.168); no
+modo `grouped`, `socal-fire` e `woolsey-fire` formam o grupo
+`socal-fire+woolsey-fire` e caem no mesmo fold. Os demais eventos não mudam de
+fold. O manifesto (`manifestos/manifesto.csv`) é gerado pelas mesmas funções, e
+o notebook 02 confere que os dois coincidem. Checkpoints anteriores à correção
+são reavaliados com `remover_duplicatas: false`, que reproduz o split com que
+foram treinados.
 
 ---
 
@@ -273,7 +292,7 @@ que definem o experimento — e exclui os de execução. Mudar o batch por
 dispositivo não muda o hash; mudar a perda muda.
 
 **Validação de configuração.** Campos categóricos são verificados contra listas
-de valores permitidos ([config.py:134](xbd/config.py:134)). Um `loss_dmg:
+de valores permitidos ([config.py:135](xbd/config.py:135)). Um `loss_dmg:
 focal-dice` (com hífen) falha na carga em vez de cair silenciosamente num `else`
 e virar um experimento diferente do que o nome promete — o modo de falha mais
 caro num estudo de ablação, porque só aparece na análise.
@@ -288,8 +307,20 @@ scaler, época e estado do RNG, então retomar continua a mesma trajetória em v
 de começar uma nova. Escrita atômica (grava em `.tmp` e renomeia): um processo
 morto no meio nunca corrompe o checkpoint bom.
 
-**Semente de augmentação derivada do índice**, para que a validação seja idêntica
-entre máquinas.
+**Sementes de augmentação.** Na validação, derivada do índice da cena, idêntica
+entre máquinas. No treino, tirada do RNG do torch, que `semear(cfg.seed)` fixa:
+a mesma seed e o mesmo `num_workers` repetem as mesmas augmentações (até
+13/10/2026 o treino usava `default_rng(None)` e não repetia).
+
+**Constantes de normalização só do treino.** `norm: dataset_treino` (padrão desde
+13/10/2026) usa a amostra estratificada de `cache/band_stats.parquet` restrita ao
+treino oficial: 303 imagens, média (0,3327; 0,3604; 0,2721). Os 24 runs usaram
+`norm: dataset`, a mesma amostra com 87 imagens de `hold`/`test` (diferença de no
+máximo 0,0033 por canal).
+
+**Dados reproduzíveis bit a bit.** `scripts/verificar_reproducao.py` refaz, dos
+GeoTIFF brutos, os pixels de cada imagem e máscara com as funções de
+`xbd/prep.py` e compara com o SHA-256 do manifesto.
 
 **Proveniência.** Cada run registra SHA do git, se a árvore estava suja, versão
 do Python e do torch, modelo de CPU e GPU, e o plano de execução completo.
@@ -339,9 +370,13 @@ toca o código de treino.
   supõe que a variância não depende muito da configuração.
 - **`hold` é usado como validação e como número reportado.** Não há conjunto de
   teste intocado neste estudo; `test` do xBD permanece sem uso.
+- **Os 24 runs são anteriores à correção das duplicatas** (§2.3). O `hold` com que
+  foram validados tinha 143 cenas com cópia idêntica no treino, e os folds
+  agrupados 0 e 3 compartilhavam 725 pares. Os números de RESULTADOS.md carregam
+  esse otimismo; o tamanho dele só se mede retreinando com `remover_duplicatas: true`.
 
 - **A validação durante o treino usa recorte central**, não a cena inteira
-  ([data.py:60](xbd/data.py:60)). Com `crop: 512`, os números saem de 25% de cada
+  ([data.py:67](xbd/data.py:67)). Com `crop: 512`, os números saem de 25% de cada
   cena de `hold` — a região central. Isso os torna **não comparáveis com o placar
   do xView2**, que pontua a cena completa.
 
