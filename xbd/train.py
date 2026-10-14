@@ -63,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--task", choices=["loc", "damage"])
     ap.add_argument("--split-mode", choices=["oficial", "grouped"])
     ap.add_argument("--max-steps", type=int)
-    ap.add_argument("--norm", choices=["dataset", "imagenet", "per_image"], default=None,
+    ap.add_argument("--norm", choices=["dataset_treino", "dataset", "imagenet", "per_image"], default=None,
                     help="sobrescreve cfg.norm")
     ap.add_argument("--fuse-mode", choices=["cat_diff", "cat", "diff"], default=None)
 

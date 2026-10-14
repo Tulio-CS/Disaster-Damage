@@ -31,7 +31,8 @@ class Config:
     usar_tier3: bool = True
     oversample_dano: float = 3.0   # peso relativo das cenas com dano no sampler
     excluir_cenas_vazias: bool = False
-    norm: str = "dataset"          # "dataset" (medias do xBD) | "imagenet" | "per_image"
+    remover_duplicatas: bool = True  # copias socal/woolsey fora do treino (ver xbd/splits.py)
+    norm: str = "dataset_treino"   # "dataset_treino" | "dataset" (amostra com hold/test) | "imagenet" | "per_image"
 
     # ---- modelo ----
     encoder: str = "resnet34"
@@ -134,7 +135,7 @@ class Config:
     _OPCOES = {
         "task": {"loc", "damage"},
         "split_mode": {"oficial", "grouped"},
-        "norm": {"dataset", "imagenet", "per_image"},
+        "norm": {"dataset_treino", "dataset", "imagenet", "per_image"},
         "fuse_mode": {"cat_diff", "cat", "diff"},
         "scheduler": {"cosine", "constante"},
         "loss_dmg": {"focal_dice", "ce_dice", "focal", "dice"},
