@@ -66,7 +66,9 @@ def limpar_chaves(estado: dict) -> dict:
 def avaliar(ck: Path, index: pd.DataFrame, dados: Path, dev: torch.device,
             batch: int, workers: int, usar_ema: bool, limite: int | None) -> dict:
     bruto = torch.load(ck, map_location="cpu", weights_only=False)
-    cfg = Config.from_dict(bruto["config"])
+    # Checkpoints anteriores a 13/10/2026 nao tem `remover_duplicatas`: foram treinados
+    # e validados sem a remocao, e reavaliar com ela mudaria os folds agrupados 0 e 3.
+    cfg = Config.from_dict({"remover_duplicatas": False, **bruto["config"]})
     cfg.data_dir = str(dados)
 
     # Split que ESTE experimento define. `crop` vai para 1024 apenas na avaliacao:

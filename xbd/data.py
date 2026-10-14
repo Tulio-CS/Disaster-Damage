@@ -31,11 +31,19 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
 from .config import IGNORE_INDEX, UNCLASSIFIED
+from .splits import montar_splits
 
 # Medias/desvios medidos em amostra estratificada do proprio xBD (secao 8 da EDA).
-# Diferem bastante das constantes do ImageNet: use estas.
+# Diferem bastante das constantes do ImageNet.
+#
+# `dataset`         399 imagens de todos os splits, inclusive hold/test. Usado nos 24
+#                   runs de 14/09/2026; fica aqui para reavaliar aqueles checkpoints.
+# `dataset_treino`  a mesma amostra restrita ao treino do split oficial (303 imagens,
+#                   sem as copias removidas). Padrao a partir de 13/10/2026.
 XBD_MEAN = (0.3293, 0.3571, 0.2692)
 XBD_STD = (0.1218, 0.1064, 0.1027)
+XBD_TREINO_MEAN = (0.3327, 0.3604, 0.2721)
+XBD_TREINO_STD = (0.1193, 0.1036, 0.1008)
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
@@ -121,7 +129,7 @@ class Aug:
 
 class XBDDataset(Dataset):
     def __init__(self, index: pd.DataFrame, data_dir: str | Path, cfg,
-                 treino: bool = True, norm: str = "dataset"):
+                 treino: bool = True, norm: str = "dataset_treino"):
         self.idx = index.reset_index(drop=True)
         self.dir = Path(data_dir)
         self.cfg = cfg
@@ -133,6 +141,8 @@ class XBDDataset(Dataset):
             mean, std = IMAGENET_MEAN, IMAGENET_STD
         elif norm == "per_image":
             mean = std = None
+        elif norm == "dataset_treino":
+            mean, std = XBD_TREINO_MEAN, XBD_TREINO_STD
         else:
             mean, std = XBD_MEAN, XBD_STD
         self.mean = np.array(mean, np.float32) if mean else None
@@ -162,9 +172,15 @@ class XBDDataset(Dataset):
         post = self._png(split, cena, "post")
         msk = self._png(split, cena, "")
 
-        # semente derivada do indice: augmentacao reprodutivel entre maquinas
-        semente = (self.cfg.seed * 1_000_003 + i) % (2 ** 31)
-        rng = np.random.default_rng(semente if not self.treino else None)
+        # Validacao: semente derivada do indice, identica entre maquinas.
+        # Treino: semente tirada do RNG do torch, que `semear(cfg.seed)` fixa no processo
+        # principal e o DataLoader deriva por worker. Muda a cada amostra e a cada
+        # epoca, e repete entre execucoes com a mesma seed e o mesmo num_workers.
+        if self.treino:
+            semente = int(torch.randint(0, 2 ** 31 - 1, (1,)))
+        else:
+            semente = (self.cfg.seed * 1_000_003 + i) % (2 ** 31)
+        rng = np.random.default_rng(semente)
         pre, post, msk = self.aug(pre, post, msk, rng)
 
         msk = msk.astype(np.int64)
@@ -178,42 +194,6 @@ class XBDDataset(Dataset):
             "mask": torch.from_numpy(msk),
             "scene_id": cena,
         }
-
-
-# -------------------------------------------------------------------------- splits
-
-
-def montar_splits(index: pd.DataFrame, cfg) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Devolve (treino, validacao).
-
-    `oficial`  reproduz a divisao do xView2: tier1 (+tier3) treina, hold valida.
-               Cuidado: a EDA mostrou que >65% dos tiles de hold/test sao
-               adjacentes a um tile de treino, entao esse numero e otimista.
-    `grouped`  agrupa por DESASTRE: nenhum evento aparece nos dois lados. Mede
-               generalizacao para um desastre novo, que e o caso de uso real.
-    """
-    idx = index.copy()
-    idx["split"] = idx["split"].astype(str)
-
-    if cfg.split_mode == "oficial":
-        splits_treino = ["tier1", "tier3"] if cfg.usar_tier3 else ["tier1"]
-        treino = idx[idx.split.isin(splits_treino)]
-        val = idx[idx.split == "hold"]
-    elif cfg.split_mode == "grouped":
-        if not cfg.usar_tier3:
-            idx = idx[idx.split != "tier3"]
-        eventos = sorted(idx.disaster.unique())
-        # atribuicao estavel de evento -> fold, independente da ordem de listagem
-        fold_de = {d: i % cfg.n_folds for i, d in enumerate(eventos)}
-        f = idx.disaster.map(fold_de)
-        treino, val = idx[f != cfg.fold], idx[f == cfg.fold]
-    else:
-        raise ValueError(f"split_mode desconhecido: {cfg.split_mode}")
-
-    if cfg.excluir_cenas_vazias:
-        treino = treino[treino.tem_edificacao]
-
-    return treino.reset_index(drop=True), val.reset_index(drop=True)
 
 
 def build_loaders(index: pd.DataFrame, cfg, plano, norm: str | None = None):
