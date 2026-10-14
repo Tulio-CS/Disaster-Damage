@@ -1,0 +1,22 @@
+# Dependencias da preparacao e auditoria dos dados (maquina que tem os GeoTIFF).
+#
+# Versoes FIXAS: sao as do ambiente em que o indice, os PNG e o manifesto foram
+# gerados, e com elas `scripts/verificar_reproducao.py` reproduz os pixels bit a bit.
+# O treino usa `requirements-treino.txt`.
+#
+#   python3 -m venv .venv
+#   .venv/bin/pip install -r requirements-dados.txt
+#
+# O notebook 02 (smoke test do DataLoader) precisa tambem do torch; a versao CPU basta:
+#   .venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+numpy==2.5.2
+pandas==3.0.5
+pyarrow==25.0.1
+rasterio==1.5.1
+shapely==2.1.2
+pillow==12.3.0
+matplotlib==3.11.2
+PyYAML==6.0.3
+opencv-python-headless==5.0.0.93
+jupyter==1.1.1

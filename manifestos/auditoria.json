@@ -1,0 +1,314 @@
+{
+  "cenas": 11034,
+  "imagens_lidas": 22068,
+  "falhas_de_leitura": 0,
+  "fora_de_1024x1024x3": 0,
+  "pre_igual_pos_na_mesma_cena": 0,
+  "pares_de_imagens_identicas": 809,
+  "pares_de_imagens_quase_identicas": {
+    "limiar_hamming_256": 16,
+    "pares": 865,
+    "imagens_fora_por_baixa_textura": 1123
+  },
+  "pares_de_cenas_duplicadas": {
+    "total": 809,
+    "com_imagem_identica": 809,
+    "por_eventos_e_imagem": {
+      "pinery-bushfire [post]": 84,
+      "socal-fire | woolsey-fire [post+pre]": 83,
+      "socal-fire | woolsey-fire [post+pre+pre~post]": 2,
+      "socal-fire | woolsey-fire [pre]": 638,
+      "socal-fire | woolsey-fire [pre+pre~post]": 2
+    }
+  },
+  "antes_da_correcao": {
+    "pares_que_atravessam_o_split_oficial": 299,
+    "por_splits": {
+      "test | train": 156,
+      "train | validation": 143
+    },
+    "cenas_de_val_test_com_copia_no_treino": {
+      "validation": 143,
+      "test": 156
+    },
+    "pares_que_atravessam_folds_agrupados": 725
+  },
+  "correcao": {
+    "cenas_excluidas_do_treino_oficial": 299,
+    "eventos_unidos_no_split_agrupado": [
+      "socal-fire+woolsey-fire"
+    ]
+  },
+  "depois_da_correcao": {
+    "pares_que_atravessam_o_split_oficial": 0,
+    "pares_que_atravessam_folds_agrupados": 0,
+    "grupos_em_mais_de_um_fold": 0,
+    "grupos_em_mais_de_um_split_oficial": 10,
+    "cenas_desses_grupos": 5244
+  },
+  "exemplos_de_pares": [
+    {
+      "a": "pinery-bushfire_00000006",
+      "b": "pinery-bushfire_00000313",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000010",
+      "b": "pinery-bushfire_00000333",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000015",
+      "b": "pinery-bushfire_00000269",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000020",
+      "b": "pinery-bushfire_00000288",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000028",
+      "b": "pinery-bushfire_00000905",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000036",
+      "b": "pinery-bushfire_00000948",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000046",
+      "b": "pinery-bushfire_00000873",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000047",
+      "b": "pinery-bushfire_00000259",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000050",
+      "b": "pinery-bushfire_00000896",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000065",
+      "b": "pinery-bushfire_00000864",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000083",
+      "b": "pinery-bushfire_00001116",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000088",
+      "b": "pinery-bushfire_00000286",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000101",
+      "b": "pinery-bushfire_00001136",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000112",
+      "b": "pinery-bushfire_00000813",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000116",
+      "b": "pinery-bushfire_00000348",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000125",
+      "b": "pinery-bushfire_00000834",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000137",
+      "b": "pinery-bushfire_00000523",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000151",
+      "b": "pinery-bushfire_00000433",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000161",
+      "b": "pinery-bushfire_00001078",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    },
+    {
+      "a": "pinery-bushfire_00000179",
+      "b": "pinery-bushfire_00001095",
+      "exato": true,
+      "fases": "post",
+      "eventos": "pinery-bushfire",
+      "splits": "train",
+      "splits_corrigidos": "train",
+      "folds_antes": "2",
+      "folds": "2"
+    }
+  ],
+  "cenas_com_mais_de_20pct_zerados": 963,
+  "cenas_por_split": {
+    "train": 8869,
+    "validation": 933,
+    "test": 933,
+    "excluir": 299
+  },
+  "cenas_por_fold_agrupado": {
+    "0": 3077,
+    "1": 1181,
+    "2": 2903,
+    "3": 2719,
+    "4": 1154
+  },
+  "colunas_extras_do_csv": [
+    "disaster",
+    "tier",
+    "fold_agrupado",
+    "disaster_type",
+    "mask_path",
+    "geotiff_pre",
+    "geotiff_post",
+    "sha256_pre",
+    "sha256_post",
+    "sha256_mask",
+    "catalog_id_pre",
+    "catalog_id_post",
+    "sensor_post",
+    "data_pre",
+    "data_post",
+    "gap_dias",
+    "off_nadir_post",
+    "lon",
+    "lat",
+    "n_no_damage",
+    "n_minor",
+    "n_major",
+    "n_destroyed",
+    "n_unclassified",
+    "frac_edificacao",
+    "zeros_pre",
+    "zeros_post"
+  ]
+}
