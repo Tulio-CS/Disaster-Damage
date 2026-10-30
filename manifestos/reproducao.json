@@ -1,0 +1,19 @@
+{
+  "data": "2026-10-13 21:34",
+  "cenas_conferidas": 11034,
+  "imagens_e_mascaras_iguais": 33102,
+  "imagens_e_mascaras_conferidas": 33102,
+  "cenas_divergentes": [],
+  "n_divergentes": 0,
+  "falhas_de_leitura": [],
+  "n_falhas": 0,
+  "segundos": 593,
+  "ambiente": {
+    "python": "3.12.3",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "rasterio": "1.5.1",
+    "shapely": "2.1.2",
+    "sistema": "Linux-7.0.0-34-generic-x86_64-with-glibc2.39"
+  }
+}

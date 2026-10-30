@@ -90,12 +90,14 @@ def escolher_cenas(index: pd.DataFrame, dados: Path) -> pd.DataFrame:
 
 
 def desnormalizar(t: torch.Tensor, cfg) -> np.ndarray:
-    from xbd.data import IMAGENET_MEAN, IMAGENET_STD, XBD_MEAN, XBD_STD
+    from xbd.data import IMAGENET_MEAN, IMAGENET_STD, XBD_MEAN, XBD_STD, XBD_TREINO_MEAN, XBD_TREINO_STD
     x = t.numpy().transpose(1, 2, 0)
     if cfg.norm == "imagenet":
         m, s = np.array(IMAGENET_MEAN), np.array(IMAGENET_STD)
     elif cfg.norm == "per_image":
         return np.clip((x - x.min()) / (x.ptp() + 1e-6), 0, 1)
+    elif cfg.norm == "dataset_treino":
+        m, s = np.array(XBD_TREINO_MEAN), np.array(XBD_TREINO_STD)
     else:
         m, s = np.array(XBD_MEAN), np.array(XBD_STD)
     return np.clip(x * s + m, 0, 1)
@@ -112,7 +114,9 @@ def main() -> int:
     print(f"modelo: {ck.parent.name}")
 
     bruto = torch.load(ck, map_location="cpu", weights_only=False)
-    cfg = Config.from_dict(bruto["config"])
+    # Checkpoints anteriores a 13/10/2026 nao tem `remover_duplicatas`: foram treinados
+    # e validados sem a remocao, e reavaliar com ela mudaria os folds agrupados 0 e 3.
+    cfg = Config.from_dict({"remover_duplicatas": False, **bruto["config"]})
     cfg.data_dir = str(RAIZ / "data")
     cfg_vis = Config.from_dict({**cfg.to_dict(), "crop": 512})
 

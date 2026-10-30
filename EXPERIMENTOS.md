@@ -36,6 +36,13 @@ Todos os deltas são medidos contra este slot:
 | `epochs` / `effective_batch` / `lr` | 20 / 16 / 3e-4 |
 | `seed` | 42 |
 
+> **Depois da auditoria de 13/10/2026** dois padrões mudaram em `xbd/config.py`:
+> `remover_duplicatas: true` (as cópias `socal-fire`/`woolsey-fire` saem do
+> treino, ver [METODOLOGIA.md §6](METODOLOGIA.md)) e `norm: dataset_treino`
+> (constantes de normalização só do treino). Os 24 runs descritos aqui usaram
+> `remover_duplicatas: false` e `norm: dataset`; rodar a matriz hoje produz a
+> versão corrigida, com outros `run_id`.
+
 ### 1.3 O piso de ruído vem antes de tudo
 
 Os slots 8 e 9 são a referência repetida com sementes diferentes (1337 e 2024).
@@ -82,7 +89,7 @@ o termo difícil está realmente entregando.
 `split_mode: grouped`, folds 0 a 4. Nenhum evento aparece no treino e na
 validação.
 
-A EDA mediu que, em 8 dos 10 eventos, mais de dois terços dos tiles de `hold` são
+A EDA mediu que, em 7 dos 10 eventos, mais de dois terços dos tiles de `hold` são
 adjacentes (<500 m) a um tile de treino. O split oficial portanto mede
 memorização do quarteirão vizinho, não generalização para um desastre novo — que
 é o caso de uso real. Split agrupado é a resposta padrão para dados com
