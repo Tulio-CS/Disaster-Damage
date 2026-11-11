@@ -1,0 +1,18 @@
+# Dependencias da demonstracao (scripts/demo.py) e do notebook 03. CPU basta.
+#
+# torch e torchvision entram antes, juntos e pelo indice da CPU. Instalados separados, o
+# `timm` puxa um torchvision do PyPI incompativel ("operator torchvision::nms does not exist").
+#   python3 -m venv .venv
+#   .venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   .venv/bin/pip install -r requirements-demo.txt
+#
+# `rasterio` so e preciso para ler o GeoTIFF original do xBD; PNG/JPG funcionam sem ele.
+
+numpy>=1.26
+pandas>=2.1
+Pillow>=10
+opencv-python-headless>=4.9
+matplotlib>=3.8
+PyYAML>=6
+timm>=1.0
+jupyter>=1.0
