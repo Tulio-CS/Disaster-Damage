@@ -22,6 +22,14 @@ numero otimista e sem significado, porque `hold` contem eventos que eles usaram
 para treinar. A referencia e todas as ablacoes usam `hold`, entao continuam
 mutuamente comparaveis.
 
+Com `--split teste` a avaliacao vai para o split `test` do xView2 (933 cenas), que
+nenhum run viu: nem no treino, nem na escolha do melhor checkpoint (feita em
+`hold`), nem na escolha do modelo final (feita sobre a tabela de `hold`). So vale
+para configs com `split_mode: oficial` — os folds agrupados nao tem um `test`
+proprio. A matriz de confusao de cada cena e gravada a parte
+(`<saida>.por_cena.json`), o que permite recortar o resultado por evento ou tirar
+as cenas que tem copia no treino sem rodar o modelo de novo.
+
 Nada aqui toca o codigo de treino: e analise pos-hoc sobre os pesos salvos.
 """
 
@@ -64,7 +72,8 @@ def limpar_chaves(estado: dict) -> dict:
 
 @torch.no_grad()
 def avaliar(ck: Path, index: pd.DataFrame, dados: Path, dev: torch.device,
-            batch: int, workers: int, usar_ema: bool, limite: int | None) -> dict:
+            batch: int, workers: int, usar_ema: bool, limite: int | None,
+            split: str = "validacao") -> tuple[dict, dict[str, list[int]]]:
     bruto = torch.load(ck, map_location="cpu", weights_only=False)
     # Checkpoints anteriores a 13/10/2026 nao tem `remover_duplicatas`: foram treinados
     # e validados sem a remocao, e reavaliar com ela mudaria os folds agrupados 0 e 3.
@@ -75,6 +84,10 @@ def avaliar(ck: Path, index: pd.DataFrame, dados: Path, dev: torch.device,
     # `Aug` faz `c = min(crop, h, w)`, entao 1024 numa cena 1024x1024 e o mesmo
     # que nao recortar. A config original fica intacta no checkpoint.
     _, val_df = montar_splits(index, cfg)
+    if split == "teste":
+        if cfg.split_mode != "oficial":
+            raise ValueError("split_mode grouped nao tem split de teste proprio")
+        val_df = index[index.split.astype(str) == "test"].reset_index(drop=True)
     cfg_eval = Config.from_dict({**cfg.to_dict(), "crop": LADO})
 
     ds = XBDDataset(val_df, dados, cfg_eval, treino=False, norm=cfg.norm)
@@ -88,6 +101,7 @@ def avaliar(ck: Path, index: pd.DataFrame, dados: Path, dev: torch.device,
 
     amp = torch.bfloat16 if dev.type == "cuda" and torch.cuda.is_bf16_supported() else None
     conf = Confusao(cfg.n_classes, device=dev)
+    por_cena: dict[str, list[int]] = {}
     n_vistas, t0 = 0, time.time()
 
     for i, lote in enumerate(dl):
@@ -98,7 +112,12 @@ def avaliar(ck: Path, index: pd.DataFrame, dados: Path, dev: torch.device,
         alvo = lote["mask"].to(dev, non_blocking=True)
         with torch.autocast(device_type=dev.type, dtype=amp, enabled=amp is not None):
             logits = modelo(pre, post)
-        conf.update(logits.argmax(1), alvo)
+        pred = logits.argmax(1)
+        conf.update(pred, alvo)
+        for k, cena in enumerate(lote["scene_id"]):
+            c = Confusao(cfg.n_classes, device=dev)
+            c.update(pred[k], alvo[k])
+            por_cena[cena] = c.achatada()
         n_vistas += pre.shape[0]
 
     dt = time.time() - t0
@@ -110,13 +129,14 @@ def avaliar(ck: Path, index: pd.DataFrame, dados: Path, dev: torch.device,
     return {
         "nome": cfg.nome, "run_id": ck.parent.name, "maquina": ck.parents[2].name,
         "split_mode": cfg.split_mode, "fold": cfg.fold, "crop_treino": cfg.crop,
+        "split_avaliado": "test" if split == "teste" else "validacao do proprio split",
         "epoca_do_ckpt": bruto.get("epoca"), "usou_ema": chave == "ema",
         "cenas_avaliadas": n_vistas, "seg": round(dt, 1),
         "img_por_s": round(n_vistas / max(dt, 1e-9), 2),
         "score_treino": (bruto.get("metricas") or {}).get("score_xview2"),
         **{k: v for k, v in m.items() if k != "matriz"},
         "matriz": m["matriz"],
-    }
+    }, por_cena
 
 
 def main() -> int:
@@ -132,7 +152,11 @@ def main() -> int:
     ap.add_argument("--sem-ema", action="store_true", help="ignora os pesos EMA")
     ap.add_argument("--rapido", type=int, metavar="N", default=0,
                     help="so N cenas por modelo — para estimar o tempo total")
-    ap.add_argument("--so", nargs="*", default=None, help="so estes experimentos")
+    ap.add_argument("--so", nargs="*", default=None,
+                    help="so estes experimentos (nome do slot, ex.: ref abl-lr-encoder-igual)")
+    ap.add_argument("--split", choices=["validacao", "teste"], default="validacao",
+                    help="validacao: o split de validacao da config (padrao); "
+                         "teste: o split `test` do xView2, nunca usado nos runs")
     args = ap.parse_args()
 
     idx_path = args.dados / "index.parquet"
@@ -142,6 +166,8 @@ def main() -> int:
     index = pd.read_parquet(idx_path)
 
     cks = achar_checkpoints(args.checkpoints)
+    if args.so:
+        cks = [c for c in cks if any(c.parent.name.startswith(f"{n}-") for n in args.so)]
     if not cks:
         print(f"!! nenhum melhor.pt sob {args.checkpoints}")
         return 1
@@ -165,7 +191,12 @@ def main() -> int:
         print(f"  ! modo rapido: {args.rapido} cenas por modelo (numeros NAO finais)")
     print("=" * 78)
 
-    saida = args.saida or (args.checkpoints / "avaliacao.json")
+    padrao = "avaliacao.json" if args.split == "validacao" else "avaliacao_teste.json"
+    saida = args.saida or (args.checkpoints / padrao)
+    saida_cenas = saida.with_suffix(".por_cena.json")
+    cenas: dict[str, dict] = {}
+    if saida_cenas.exists():
+        cenas = json.loads(saida_cenas.read_text(encoding="utf-8"))
     resultados: list[dict] = []
     if saida.exists():                            # retomavel
         try:
@@ -180,8 +211,8 @@ def main() -> int:
         if ck.parent.name in feitos:
             continue
         try:
-            r = avaliar(ck, index, args.dados, dev, batch, args.workers,
-                        not args.sem_ema, args.rapido or None)
+            r, por_cena = avaliar(ck, index, args.dados, dev, batch, args.workers,
+                                  not args.sem_ema, args.rapido or None, args.split)
         except torch.cuda.OutOfMemoryError:
             print(f"  [{i}/{len(cks)}] {ck.parent.name}: sem VRAM — use --batch menor")
             torch.cuda.empty_cache()
@@ -191,8 +222,10 @@ def main() -> int:
             continue
 
         resultados.append(r)
+        cenas[r["run_id"]] = por_cena
         saida.write_text(json.dumps(resultados, indent=2, ensure_ascii=False),
                          encoding="utf-8")     # grava a cada modelo: queda nao perde
+        saida_cenas.write_text(json.dumps(cenas, separators=(",", ":")), encoding="utf-8")
         antes = r["score_treino"]
         delta = f"{r['score_xview2'] - antes:+.4f}" if isinstance(antes, (int, float)) else "—"
         print(f"  [{i}/{len(cks)}] {r['nome']:<26} score {r['score_xview2']:.4f}  "
