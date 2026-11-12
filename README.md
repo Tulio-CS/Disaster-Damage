@@ -41,6 +41,11 @@ python3 -m venv .venv
 .venv/bin/python scripts/demo.py
 ```
 
+Na primeira execução a demo baixa `modelos/modelo_final.pt` (~100 MB) do release
+v1.0. Enquanto o repositório for privado, o download anônimo não funciona: a demo
+tenta então o `gh` autenticado (`gh release download v1.0 -p modelo_final.pt -D modelos`)
+e, sem ele, pede para baixar o arquivo da página do release e salvar em `modelos/`.
+
 A demo roda o fluxo imagem → pré-processamento → modelo → resultado nas 4 cenas
 de `amostras/`, que são do split `test` e nunca foram vistas no treino nem na
 escolha do modelo. O resultado vai para `saidas/demo/`: uma figura com pré, pós,

@@ -44,12 +44,28 @@ AREA_MIN_EDIFICACAO = 20   # px; componentes menores sao ruido de borda
 
 
 def baixar(destino: Path) -> None:
+    """Baixa do release v1.0. Com o repositorio privado, o download anonimo da 404:
+    nesse caso usa o `gh` autenticado, se houver, ou explica como baixar a mao."""
+    import shutil
+    import subprocess
     url = f"{URL_RELEASE}/{destino.name}"
     print(f"baixando {url} ...")
     destino.parent.mkdir(parents=True, exist_ok=True)
     tmp = destino.with_suffix(".parcial")
-    urllib.request.urlretrieve(url, tmp)
-    tmp.rename(destino)
+    try:
+        urllib.request.urlretrieve(url, tmp)
+        tmp.rename(destino)
+        return
+    except OSError:
+        tmp.unlink(missing_ok=True)
+    if shutil.which("gh"):
+        r = subprocess.run(["gh", "release", "download", "v1.0", "--repo", "Tulio-CS/Disaster-Damage",
+                            "--pattern", destino.name, "--dir", str(destino.parent)])
+        if r.returncode == 0 and destino.exists():
+            return
+    raise SystemExit(f"nao consegui baixar {destino.name}. Baixe-o da pagina do release "
+                     f"(https://github.com/Tulio-CS/Disaster-Damage/releases/tag/v1.0) "
+                     f"e salve em {destino}")
 
 
 def carregar_modelo(caminho: str | Path = MODELO_PADRAO,
