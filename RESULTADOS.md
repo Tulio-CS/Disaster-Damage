@@ -2,11 +2,57 @@
 
 24 experimentos, 10 máquinas, um dia. Todos os números abaixo vêm da
 **reavaliação em cena inteira** (1024×1024) sobre os checkpoints coletados —
-`colheita/avaliacao.json`, gerado por `scripts/avaliar.py`. Ver
+`results/avaliacao_validacao.json`, gerado por `scripts/avaliar.py`. Ver
 [METODOLOGIA.md §11](METODOLOGIA.md) para por que este é o número a reportar, e
 não o do treino.
 
 Desenho dos experimentos em [EXPERIMENTOS.md](EXPERIMENTOS.md).
+
+---
+
+## 0. Entrega final: baseline, modelo final e teste
+
+**Baseline** = `ref`: U-Net siamesa com `resnet34` pré-treinado, fusão
+`[f_pré | f_pós | |Δ|]`, Focal + Dice, AdamW com lr 3e-4 (3e-5 no encoder), batch
+efetivo 24 e 20 épocas. A ficha completa está no notebook 03 §2.
+
+**Modelo final** = `abl-lr-encoder-igual`: o baseline com o encoder aprendendo à
+mesma taxa do decoder. Foi escolhido por ter o maior score de validação
+(+0,0411, 6× o piso de ruído; §3.6). Como essa escolha usou `hold`, o número dele
+em `hold` é otimista por construção. Por isso o modelo final foi avaliado também no
+split `test`, que nenhuma decisão usou (`scripts/avaliar.py --split teste`).
+
+| | validação (`hold`) | teste (933 cenas) | teste sem as 156 cópias | F1 loc (teste) | F1 dano (teste) |
+|---|---|---|---|---|---|
+| baseline (`ref`) | 0,6583 | — | — | — | — |
+| **modelo final** | 0,6994 | **0,6900** | 0,6907 | 0,8559 | 0,6189 |
+
+- **Queda pequena da validação para o teste:** −0,009, perto do piso de ruído.
+  A escolha em `hold` não sobreajustou.
+- **O ganho sobre o baseline não vem do otimismo da escolha:** mesmo no teste, o
+  modelo final fica 0,032 acima do score do baseline na validação.
+- **Por que o baseline não tem número de teste:** baseline e ablações são
+  comparados em `hold`, onde a escolha foi feita, e só o modelo escolhido vai ao
+  teste. Para medir o baseline no teste também, rode
+  `scripts/avaliar.py --split teste --so ref` (~80 min em CPU).
+- **As cópias `socal-fire`/`woolsey-fire` não inflaram o teste:** sem elas, o
+  número fica igual.
+
+Modelo final no teste, por classe (por pixel; F1 = Dice):
+
+| classe | precisão | revocação | F1 | IoU |
+|---|---|---|---|---|
+| fundo | 0,992 | 0,991 | 0,991 | 0,983 |
+| intacta | 0,822 | 0,806 | 0,814 | 0,686 |
+| dano leve | 0,399 | 0,455 | 0,425 | 0,270 |
+| dano severo | 0,599 | 0,710 | 0,650 | 0,481 |
+| destruída | 0,764 | 0,725 | 0,744 | 0,592 |
+
+O mIoU das 5 classes é 0,603. O dano leve continua sendo o gargalo (§4): só
+45,5% dos seus pixels acertam, e o resto se divide quase por igual entre
+intacta, dano severo e fundo. A análise por evento, os exemplos de acertos e
+erros e a demonstração estão no
+[notebook 03](notebooks/03_resultados_e_demo.ipynb).
 
 ---
 
@@ -270,6 +316,14 @@ os números absolutos ficam abaixo do que estas arquiteturas alcançam.
 baixou o score em média 0,0059 (de −0,0130 em `ref` a +0,0068 em `abl-crop256`).
 Pequeno, mas sistemático, e mais uma razão para reportar o número reavaliado.
 
+**O batch efetivo não foi o mesmo em todos os slots.** A matriz pede 16, mas o
+planejador de hardware arredondou para 12 × 2 = 24 nas GPUs de 16 GB, e é esse
+24 que a referência e quase todos os slots usaram (`plano` em
+`results/runs/*.json`). Quatro slots rodaram com outro valor: `abl-encoder-effnet`
+e `abl-crop256` com 16, `abl-encoder-seresnext50` com 18 e `abl-crop768` com 20.
+Nesses quatro, o delta mistura o fator ablacionado com o batch. A comparação
+entre a referência e `abl-lr-encoder-igual` não é afetada, porque os dois usaram 24.
+
 **Uma semente por ablação.** Os deltas de +0,03 a +0,04 são 4–6× o piso de ruído,
 então provavelmente reais. Os de ±0,01 a ±0,02 mereceriam réplica antes de virar
 afirmação.
@@ -317,17 +371,22 @@ Em ordem de retorno esperado:
 ```bash
 # tabela reavaliada, a partir dos checkpoints coletados
 .venv/bin/python scripts/avaliar.py --checkpoints colheita --dados data
+
+# teste: so o modelo final (~80 min em CPU); --so ref acrescenta o baseline
+.venv/bin/python scripts/avaliar.py --checkpoints colheita --dados data --split teste \
+    --so abl-lr-encoder-igual --saida results/avaliacao_teste.json
 ```
 
 Dados brutos:
 
 | o quê | onde |
 |---|---|
-| tabela reavaliada (24 modelos, todas as métricas, matrizes) | `colheita/avaliacao.json` |
-| manifesto de cada run | `colheita/<máquina>/results/runs/*.json` |
-| métricas por época | `colheita/<máquina>/results/history/*.jsonl` |
-| pesos | `colheita/<máquina>/checkpoints/<run_id>/melhor.pt` |
+| tabela reavaliada na validação (24 modelos, todas as métricas, matrizes) | `results/avaliacao_validacao.json` (cópia de `colheita/avaliacao.json`) |
+| teste do modelo final, com a matriz de cada cena | `results/avaliacao_teste.json`, `results/avaliacao_teste.por_cena.json` |
+| manifesto de cada run (config, hardware, batch efetivo) | `results/runs/*.json` |
+| métricas por época | `results/history/*.jsonl` |
+| pesos do baseline e do modelo final | release v1.0 (`baseline_ref.pt`, `modelo_final.pt`) |
+| pesos dos outros runs | `colheita/<máquina>/checkpoints/<run_id>/melhor.pt` |
 | curvas ao vivo | painel, aba TensorBoard |
 
-`colheita/` não é versionada (10 GB). Os manifestos e o histórico também estão em
-`results/`, que é versionado.
+`colheita/` não é versionada (10 GB). Tudo o que está em `results/` é versionado.

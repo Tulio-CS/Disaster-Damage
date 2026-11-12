@@ -42,3 +42,7 @@ __pycache__/
 # Colheita do laboratorio: 10 GB de pesos, recolhidos das 10 maquinas.
 # Os manifestos e o historico ja estao versionados em results/.
 colheita/
+
+# Saidas da demo (scripts/demo.py) e pesos exportados para o release
+saidas/
+modelos/
